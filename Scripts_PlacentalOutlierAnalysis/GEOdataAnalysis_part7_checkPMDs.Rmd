@@ -1,0 +1,350 @@
+---
+title: "GEO data sets_PMD analysis"
+author: "Qianhui"
+date: "14/01/2019"
+output: html_document
+---
+
+This document is mainly for part7 of the GEO data set analysis, that is match beta values with PMDs.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r package, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(doParallel)
+library(Gviz)
+library(dplyr)
+library(reshape2)
+library(minfi)
+library(plyranges)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+library(ggplot2)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+# Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+
+# annotation needed for using functions
+ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
+annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
+
+# Residuals, these residuals are Mvalues with control PCA1&2 removed
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected.rds")
+
+# BM list after normalisation, but not corrected for batch across samples
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+
+# PMDS
+PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
+
+```
+
+# 2. Plot beta values and PMDs (1st trimester samples)
+```{r}
+
+colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+registerDoParallel(cores = 5)
+TxDb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+Pr <- promoters(genes(TxDb), upstream = 1000, downstream = 100)
+
+table(colnames(NormBMlist$NormBAll) %in% GEO_phenotypes$Sample_name)
+Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormBAll), GEO_phenotypes$Sample_name),]
+
+PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
+PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier", "Outlier", "Standard"))
+
+Placenta_Mnorm_v1 <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta$Sample_name]
+# Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+Placenta_betaNorm <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta$Sample_name]
+
+# some preperation for plotting
+## Get probe ranges and select probe not related with islands
+Gset_placenta <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm, array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe <- Gset_placenta@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe <- base::match(GRangeProbe$Name, rownames(Placenta_betaNorm))
+values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(Placenta_betaNorm[matchWithGRprobe,], check.names = F)) 
+
+### add seqinfo
+bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
+bs_hg19
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
+
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+## get annotation and remove probes related wtih CpG islands
+ann450ksub <- ann450k[match(rownames(Placenta_betaNorm), ann450k$Name), ] %>% as.data.frame()
+
+ProbeNotOnIslandAndShore <- ann450ksub[!(ann450ksub$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
+ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
+
+# ProbesOnGenePromoter <- find_overlaps(Pr,GRangeProbe)$Name %>% unique()
+# ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Name%in%ProbesOnGenePromoter),]
+
+ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in% 
+                                   intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
+
+GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #117133
+
+# Gviz plot 
+genome <- "hg19"
+
+chrom <- "chr21"
+
+start <- 13000000
+
+end <- 48119895
+
+# add extra space to plot (since plot range should be longer than this DMR)
+minbase <- start - (0.0001*(end-start))
+maxbase <- end + (0.0001*(end-start))
+
+#### ideogram Track:
+iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, name = "", from=minbase, to=maxbase)
+
+#### Genome Axis Track:
+gTrack <- GenomeAxisTrack(col="black", cex=1, name = "", fontcolor="black", add53=T, add35=T)
+
+#### PMD track
+PMDTrack <- AnnotationTrack(range=PMDs_hg19, gensome = genome, chromosome = chrom, 
+                            start = minbase, end = maxbase,
+                            name = "Published PMDs",
+                            id="PMD",
+                            fontcolor.feature="black",
+                            col.title="black",
+                            #groupAnnotation=NULL,
+                            showId=FALSE,
+                            showFeatureId=FALSE,
+                            stacking = "dense"
+)
+
+#### create methylation data Track:
+library(RColorBrewer)
+# colorFun <- colorRampPalette(brewer.pal(9,"Blues")[3:9])
+# colorFun <- colorRampPalette(brewer.pal(9,"YlOrRd"))
+colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+
+methTrack <- DataTrack(
+  range = GRangeProbesForPMDanalysis[,4:35],
+  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
+  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
+  groups=factor(PhenodataPlacenta$Outlier),
+  ylim= c(0, 1.00),
+  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
+  col=brewer.pal(8,"Dark2")[1:2],
+  # type = c("a", "p"), # a: line plot of average
+  type = "smooth", span=1/40, baseline=0.5, 
+  name = "DNA Methylation\n(beta value)",
+  background.panel = "black",
+  # legend=FALSE,
+  col.title="black",
+  col.axis="black",
+  cex.title=0.8,
+  cex.axis=0.8,
+  cex.legend = 0.8
+  )
+
+# tracks to draw
+tracks <- list(iTrack, gTrack, PMDTrack, methTrack)
+
+#### set up relative size for each track:
+sizes <- c(2,2,2,5)
+plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, grid=TRUE,
+           lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+
+tiff(filename = "/home/qianhui/DNAme/Process_decidual/figures/GvizPMDchr21_T1samples_v1.tiff", width = 3000, height = 2500, res = 300)
+plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, grid=TRUE,
+           lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+dev.off()
+
+```
+
+
+# 3. Plot beta values and PMDs (Term trimester samples)
+```{r}
+
+colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+registerDoParallel(cores = 5)
+
+table(colnames(NormBMlist$NormBAll) %in% GEO_phenotypes$Sample_name)
+Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormBAll), GEO_phenotypes$Sample_name),]
+
+PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
+PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier", "Outlier", "Standard"))
+
+Placenta_Mnorm_v1 <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta$Sample_name]
+# Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+Placenta_betaNorm <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta$Sample_name]
+
+# some preperation for plotting
+## Get probe ranges and select probe not related with islands
+Gset_placenta <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm, array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe <- Gset_placenta@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe <- base::match(GRangeProbe$Name, rownames(Placenta_betaNorm))
+values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(Placenta_betaNorm[matchWithGRprobe,], check.names = F)) 
+
+### add seqinfo
+bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
+bs_hg19
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
+
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+## get annotation and remove probes related wtih CpG islands
+ann450ksub <- ann450k[match(rownames(Placenta_betaNorm), ann450k$Name), ] %>% as.data.frame()
+
+ProbeNotOnIslandAndShore <- ann450ksub[!(ann450ksub$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
+ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
+
+# ProbesOnGenePromoter <- find_overlaps(Pr,GRangeProbe)$Name %>% unique()
+# ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Name%in%ProbesOnGenePromoter),]
+
+ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in% 
+                                   intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
+
+GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #117133
+
+# Gviz plot 
+genome <- "hg19"
+
+chrom <- "chr21"
+
+start <- 13000000
+
+end <- 48119895
+
+# add extra space to plot (since plot range should be longer than this DMR)
+minbase <- start - (0.0001*(end-start))
+maxbase <- end + (0.0001*(end-start))
+
+#### ideogram Track:
+iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, name = "", from=minbase, to=maxbase)
+
+#### Genome Axis Track:
+gTrack <- GenomeAxisTrack(col="black", cex=1, name = "", fontcolor="black", add53=T, add35=T)
+
+#### PMD track
+PMDTrack <- AnnotationTrack(range=PMDs_hg19, gensome = genome, chromosome = chrom, 
+                            start = minbase, end = maxbase,
+                            name = "Published PMDs",
+                            id="PMD",
+                            fontcolor.feature="black",
+                            col.title="black",
+                            #groupAnnotation=NULL,
+                            showId=FALSE,
+                            showFeatureId=FALSE,
+                            stacking = "dense"
+)
+
+#### create methylation data Track:
+library(RColorBrewer)
+# colorFun <- colorRampPalette(brewer.pal(9,"Blues")[3:9])
+# colorFun <- colorRampPalette(brewer.pal(9,"YlOrRd"))
+# colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+
+methTrack <- DataTrack(
+  range = GRangeProbesForPMDanalysis[,4:345],
+  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
+  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
+  groups=factor(PhenodataPlacenta$Outlier),
+  ylim= c(0, 1.00),
+  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
+  # col=unique(colorFun(2)[factor(PhenodataPlacenta$Outlier)]),
+  col=brewer.pal(8,"Dark2")[1:2],
+  # type = c("a", "p"), # a: line plot of average
+  type = "smooth", span=1/30, baseline=0.5, 
+  name = "DNA Methylation\n(beta value)",
+  background.panel = "black",
+  # legend=FALSE,
+  col.title="black",
+  col.axis="black",
+  cex.title=0.8,
+  cex.axis=0.8,
+  cex.legend = 0.8
+  )
+
+# tracks to draw
+tracks <- list(iTrack, gTrack, PMDTrack, methTrack)
+
+#### set up relative size for each track:
+sizes <- c(2,2,2,5)
+plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, grid=TRUE,
+           lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+
+tiff(filename = "/home/qianhui/DNAme/Process_decidual/figures/GvizPMDchr21_Termsamples_v1.tiff", width = 3000, height = 2500, res = 300)
+plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, grid=TRUE,
+           lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+dev.off()
+
+```
+
+

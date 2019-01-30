@@ -1,0 +1,663 @@
+---
+title: "technical report (mainly 450k data, 15 GEO data sets used)"
+author: "Qianhui"
+date: "21/11/2018"
+output: html_document
+---
+
+This document is mainly for part4 of the GEO data set analysis, that is the filtering, backgroud correction step.
+
+The preprocessed beta values and the correspounding M values were stored in a list for each tissue type. 
+The Msets for each tissue types were saved as RData as well.
+There is a tissue type only include one sample, Cord blood only have one sample.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r package, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(readxl)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(data.table)
+library(limma)
+library(ewastools)
+library(ENmix)
+library(wateRmelon)
+library(FactoMineR)
+library(doParallel)
+library(ggplot2)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+#GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta, 
+#GEO_RGset_EPIC_normalPlacenta, GEO_phenoData_EPIC_normalPlacenta, 
+#GEO_RGset_EPIC_normalPlacenta_ourStudy, GEO_phenoData_EPIC_normalPlacenta_ourStudy
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
+
+#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion, GEO_RGset_EPIC_Amnion, GEO_phenoData_EPIC_Amnion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
+
+#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion,GEO_RGset_EPIC_Chorion, GEO_phenoData_EPIC_Chorion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalChorion.RData")
+
+#GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua, GEO_RGset_EPIC_Decidua, GEO_phenoData_EPIC_Decidua, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDecidua.RData")
+
+#GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
+
+#GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+
+#GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+
+#GEO_RGset_450k_UC, GEO_phenoData_450k_UC
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+
+#GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
+
+# crossreactive probes-- EPIC
+crossreactiveProbesEPIC <- read_csv("/home/qianhui/DNAme/Process-QH/13059_2016_1066_MOESM1_ESM-cross-reactive.csv")
+colnames(crossreactiveProbesEPIC)[1] <- "ProbeNames"
+
+# crossreactive probes--450k
+crossreactiveProbes450k <- read_excel("/home/qianhui/DNAme/Process-QH/48639-non-specific-probes-Illumina450k.xlsx", sheet = 1)
+colnames(crossreactiveProbes450k)[1] <- "ProbeNames"
+
+# annotation needed for using functions
+ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
+annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
+
+```
+
+
+# 2. Sample and probe filtering & Background and dye bias correction & nomalisation
+
+There are many tissue types for normal tissue samples around placenta, such as cord blood, chorionic plate and so on. We need to normalise different tissue separately.
+
+There are 9 tissue types (we choose tissue types located near placenta) in total from GEO.
+
+## A) Function for filtering and bg correction and normalisation
+
+FilterFUN & use FilterFUN
+
+TissueType argument in this function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, 
+placental mesenchyme, placental trophoblast, umbilical cord, Umbilical cord blood.
+
+### Function that need to be called in `FilterFUN`
+```{r}
+# Tissue: Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
+
+getRGset450K_extended <- function(Tissue){
+  # base directory
+  GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
+  # get 450k meta data
+  kept450k <- GEO_phenotypes$ArrayType=='450K'& 
+              !(GEO_phenotypes$Sample_name%in%c("GSM1617002_7668610068_R01C01","GSM1616993_7668610068_R06C02"))
+  GEO_phenotypes_450k <- GEO_phenotypes[kept450k,]
+  
+  # get 450k, meta data for the tissue
+  GEO_phenotypes_450k_Tissue <- GEO_phenotypes_450k %>% 
+  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
+  filter(str_detect(Disease, pattern="Uncomplicated$"))
+  # get the RGset for this tissue
+  GEO_RGset_450k_Tissue_extended <- read.metharray.exp(base = GEO_baseDir, 
+                                                       targets = GEO_phenotypes_450k_Tissue,
+                                                       extended = TRUE)
+  return(GEO_RGset_450k_Tissue_extended)
+}
+
+
+## get normal tissue data, EPIC
+getRGsetEPIC_extended <- function(Tissue){
+  # base directory
+  GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
+  
+  # get EPIC meta data
+  GEO_phenotypes_EPIC <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
+  # get EPIC, meta data for the tissue
+  GEO_phenotypes_EPIC_Tissue <- GEO_phenotypes_EPIC %>%
+  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>%
+  filter(str_detect(Disease, pattern="Uncomplicated$"))
+
+  # # for out data 10 samples
+  # GEO_phenotypes_EPIC_Tissue <- GEO_phenotypes_EPIC %>% 
+  # filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
+  # filter(str_detect(Disease, pattern="Uncomplicated$")) %>% 
+  # filter(str_detect(GEO_accession, pattern= "OurData"))
+  
+  # get the RGset for this tissue
+  GEO_RGset_EPIC_Tissue_extended <- read.metharray.exp(base = GEO_baseDir, 
+                                              targets = GEO_phenotypes_EPIC_Tissue, 
+                                              extended = TRUE, force = TRUE)
+  return(GEO_RGset_EPIC_Tissue_extended)
+}
+
+
+```
+
+
+### Function `FilterFUN`
+```{r FilterFUN}
+  # dropSNP, dropXY: FALSE or TRUE; dropSNP=TRUE means drop all probes related with SNPs
+  # annotation: ann450k or annEPIC, a DataFrame
+
+FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType, 
+                      DropSNP, DropXY, returnMset, returnBM){
+    
+  registerDoParallel(cores = 10)
+  # get the object from character
+  RGset <- get(RGsetChara)
+  
+  # get methylset
+  if(ncol(RGset) ==1){
+    methylset_raw <- preprocessIllumina(RGset, bg.correct = TRUE, normalize =  "no")
+  
+  } else {
+    
+    methylset_raw <- preprocessRaw(RGset) # 866238
+    
+  }
+
+  
+  # filtering of probes
+  ## drop P
+  detP <- minfi::detectionP(RGset)
+  Failed <- detP > 0.01
+  methylset_P <- methylset_raw[rowSums(Failed)==0,] #846991
+
+  ## drop probes with <3 beads
+  if(identical(annotation, ann450k)){
+    
+  EpicRGset_OneTissue_extended <- getRGset450K_extended(Tissue=tissueType)
+  
+  }else if(identical(annotation, annEPIC)){
+    
+  EpicRGset_OneTissue_extended <- getRGsetEPIC_extended(Tissue=tissueType)
+  }
+
+  BeadCount <- getNBeads(EpicRGset_OneTissue_extended)
+  RemainProbe <- rowSums(BeadCount<3) < 0.05 * (ncol(BeadCount))
+  EpicRGset_OneTissue_extended_Bead <- EpicRGset_OneTissue_extended[RemainProbe,]
+  methylset_rawBead <- preprocessRaw(EpicRGset_OneTissue_extended_Bead) # bead number filter
+
+  methylset_PBead <- methylset_P[rownames(methylset_P)%in%rownames(methylset_rawBead),] # 834351
+
+  ## drop cross-reactive probes
+  keep <- !(featureNames(methylset_PBead) %in% crossreactiveProbes$ProbeNames)
+  methylset_PBeadX <- methylset_PBead[keep, ] # 792070
+
+  ## drop SNPs
+  ### if I use DropSNP argument, I drop all probes with SNPs
+  if(DropSNP==TRUE){
+  GRaSet_meth_PBeadX <- methylset_PBeadX %>% ratioConvert() %>% mapToGenome()
+  GRaSet_meth_PBeadXAddSNPinfo <- addSnpInfo(GRaSet_meth_PBeadX)
+  GRaSet_meth_PBeadXsnp <- dropLociWithSnps(GRaSet_meth_PBeadXAddSNPinfo,
+                                  snps = c("CpG", "SBE", "Probe"), maf = 0)
+
+  meth_PBeadXsnp <- methylset_PBeadX[rownames(methylset_PBeadX)%in% rownames(GRaSet_meth_PBeadXsnp), ]
+
+  # saveRDS(meth_PBeadXsnp, 
+  #         file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_MethylSetRaw_GEOdrop_PBeadXsnp_butKeepXY_", tissueType, ".rds"))
+  
+  }else{
+  ### else, I only drop unwanted SNP related probes, that is SNPs at CpG SBE sites
+  GRaSet_meth_PBeadX <- methylset_PBeadX %>% ratioConvert() %>% mapToGenome()
+  GRaSet_meth_PBeadXAddSNPinfo <- addSnpInfo(GRaSet_meth_PBeadX)
+  GRaSet_meth_PBeadXsnp <- dropLociWithSnps(GRaSet_meth_PBeadXAddSNPinfo, 
+                                            snps = c("CpG", "SBE"), maf = 0)
+
+  meth_PBeadXsnp <- methylset_PBeadX[rownames(methylset_PBeadX)%in% rownames(GRaSet_meth_PBeadXsnp), ]
+  
+  }
+
+  ## drop probes on X, Y chr
+  if(DropXY==TRUE){
+    
+  keep <- !(featureNames(meth_PBeadXsnp) %in% annotation$Name[annotation$chr %in% c("chrX", "chrY")])
+  meth_PBeadXsnpXY <- meth_PBeadXsnp[keep, ] # 600k
+
+  # saveRDS(methPlacenta_PBeadXsnpXY, 
+  #         file = "/home/qianhui/DNAme/Process_placenta_workflow/placenta_MethylSetRaw_GEOdrop_PBeadXsnpXY.rds")
+  }else{
+    
+  meth_PBeadXsnpXY <- meth_PBeadXsnp
+  }
+  
+  
+  # bg correction
+  filteredCpGs <- setdiff(featureNames(methylset_raw), featureNames(meth_PBeadXsnpXY))
+
+  if(ncol(RGset) ==1){
+  methylsetNormal_bgCorrENmix <- meth_PBeadXsnpXY
+  } else {
+  methylsetNormal_bgCorrENmix <- preprocessENmix(RGset, exCpG = filteredCpGs, nCores = 10)
+  }
+
+  
+  # remove files not need
+  rm(methylset_raw, EpicRGset_OneTissue_extended,     
+     GRaSet_meth_PBeadX, GRaSet_meth_PBeadXAddSNPinfo, GRaSet_meth_PBeadXsnp, 
+     meth_PBeadXsnpXY)
+  
+  
+  # return(methylsetNormal_bgCorrENmix)
+  if(returnMset==TRUE){
+    return(methylsetNormal_bgCorrENmix)
+  }
+  
+  # or return list containing beta and M values
+  if(returnBM==TRUE){
+    ## get beta values
+    Normal_betaNorm <- minfi::getBeta(methylsetNormal_bgCorrENmix)
+    ## calculate M values
+    Normal_Mnorm <- log2(Normal_betaNorm/(1 - Normal_betaNorm))
+    Normal_Mnorm_v1 <- Normal_Mnorm[apply(Normal_Mnorm, 1, function(x) all(is.finite(x))), ]
+
+    BM_List <- list(Beta=Normal_betaNorm, M=Normal_Mnorm_v1)
+    return(BM_List)
+  }
+
+}
+
+# will write another function to do normalisation
+
+  # do DMIQ normalisation
+  # Normal_beta_bgCorr <- minfi::getBeta(methylsetNormal_bgCorrENmix)
+  ## BMIQ output normalised beta values
+  # Normal_betaNorm <- BMIQ(methylsetNormal_bgCorrENmix)
+
+```
+
+* I will do nomalisation in next Rmd document, because there are batch effects between GEO studies, I need to use BMIQ and modified BMIQ to normalise all data sets.
+
+
+## B) Use the function FilterFUN to get bg corrected beta and M values for all the samples from 9 kinds of tissues located around placenta during early development.
+
+* filter out failed samples first for GEO_RGset_450k_normalPlacenta[,5] (GSM1617002) and GEO_RGset_450k_MaternalBlood[,8] (GSM1616993).
+
+These 2 failed samples are placental sample and maternal blood sample respectively, and both of them were from first trimester.
+
+```{r UseFilterFUN2getBM}
+# remove failed samples
+GEO_RGset_450k_normalPlacenta_v1 <- GEO_RGset_450k_normalPlacenta[,-5]
+GEO_RGset_450k_MaternalBlood_v1 <- GEO_RGset_450k_MaternalBlood[,-8]
+
+TissueRGsetInfo <- data_frame(
+  TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
+                     "GEO_RGset_EPIC_normalPlacenta_ourStudy",
+                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
+                      "GEO_RGset_450k_MaternalBlood_v1", "GEO_RGset_450k_mesenchyme",
+                      "GEO_RGset_450k_trophoblast", 
+                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      ),
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
+                "Maternal whole blood", "placental mesenchyme", 
+                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+)
+
+
+
+# mutiple samples for thses tissue types (use ENmix bg correction method)
+# Tissue: Placenta, Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
+
+for(i in TissueRGsetInfo$TissueRGsetNames){
+  
+  if(str_detect(i, pattern ="450k")){
+    
+    assign(paste0("BM", str_replace(i, "GEO_RGset","")),
+           FilterFun(RGsetChara = i,
+                     crossreactiveProbes = crossreactiveProbes450k, 
+                     annotation = ann450k, 
+                     tissueType =TissueRGsetInfo[TissueRGsetInfo$TissueRGsetNames%in%i,]$TissueTypes,
+                     DropSNP = TRUE, DropXY = TRUE,
+                     returnMset = FALSE, returnBM = TRUE))
+    
+  }else if(str_detect(i, pattern ="EPIC")){
+    
+    assign(paste0("BM", str_replace(i, "GEO_RGset","")),
+           FilterFun(RGsetChara = i,
+                     crossreactiveProbes = crossreactiveProbesEPIC, 
+                     annotation = annEPIC, 
+                     tissueType =TissueRGsetInfo[TissueRGsetInfo$TissueRGsetNames%in%i,]$TissueTypes,
+                     DropSNP = TRUE, DropXY = TRUE,
+                     returnMset = FALSE, returnBM = TRUE))
+  } # end if
+
+} # end for
+
+
+save(
+     list=c(paste0("BM", str_replace(TissueRGsetInfo$TissueRGsetNames, "GEO_RGset",""))),
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/BMof9TissueTypes.RData")
+
+```
+
+
+## C) Use the function FilterFUN to get bg corrected Methyl sets for all the samples from 9 kinds of tissues located around placenta during early development.
+
+```{r UseFilterFUN2getMset}
+# remove failed samples
+GEO_RGset_450k_normalPlacenta_v1 <- GEO_RGset_450k_normalPlacenta[,-5]
+GEO_RGset_450k_MaternalBlood_v1 <- GEO_RGset_450k_MaternalBlood[,-8]
+
+TissueRGsetInfo <- data_frame(
+  TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
+                     "GEO_RGset_EPIC_normalPlacenta_ourStudy",
+                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
+                      "GEO_RGset_450k_MaternalBlood_v1", "GEO_RGset_450k_mesenchyme",
+                      "GEO_RGset_450k_trophoblast", 
+                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      ),
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
+                "Maternal whole blood", "placental mesenchyme", 
+                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+)
+
+
+# mutiple samples for thses tissue types (use ENmix bg correction method)
+# Tissue: Placenta, Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
+
+for(i in TissueRGsetInfo$TissueRGsetNames){
+  
+  if(str_detect(i, pattern ="450k")){
+    
+    assign(paste0("Mset", str_replace(i, "GEO_RGset","")),
+           FilterFun(RGsetChara = i,
+                     crossreactiveProbes = crossreactiveProbes450k, 
+                     annotation = ann450k, 
+                     tissueType =TissueRGsetInfo[TissueRGsetInfo$TissueRGsetNames%in%i,]$TissueTypes,
+                     DropSNP = TRUE, DropXY = TRUE,
+                     returnMset = TRUE, returnBM = FALSE))
+    
+  }else if(str_detect(i, pattern ="EPIC")){
+    
+    assign(paste0("Mset", str_replace(i, "GEO_RGset","")),
+           FilterFun(RGsetChara = i,
+                     crossreactiveProbes = crossreactiveProbesEPIC, 
+                     annotation = annEPIC, 
+                     tissueType =TissueRGsetInfo[TissueRGsetInfo$TissueRGsetNames%in%i,]$TissueTypes,
+                     DropSNP = TRUE, DropXY = TRUE,
+                     returnMset = TRUE, returnBM = FALSE))
+  } # end if
+
+} # end for
+
+
+save(
+     # Mset_450k_normalPlacenta_v1, Mset_EPIC_normalPlacenta,
+     # Mset_450k_Amnion, Mset_EPIC_Amnion,
+     # Mset_450k_Chorion, Mset_EPIC_Chorion,
+     # Mset_450k_Decidua, Mset_EPIC_Decidua,
+     # Mset_450k_MaternalBlood_v1, Mset_450k_mesenchyme,
+     # Mset_450k_trophoblast, Mset_450k_UC, Mset_450k_UCB,
+     list=c(paste0("Mset", str_replace(TissueRGsetInfo$TissueRGsetNames, "GEO_RGset",""))),
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/MsetsOf9TissueTypes.RData")
+
+
+```
+
+
+# 3. MDS plot using all data
+
+## A) Function `plotMDSFUN`
+
+```{r plotMDSFUN}
+# phenoData: GEO_phenotypes, meta data for all samples
+# Array: "450k" or "EPIC"
+
+plotMDSFUN <- function(Normal_betaNorm, Tissue, PhenoData, Array, Study,...){
+  registerDoParallel(cores = 10)
+
+  if(Array == "450k"){
+
+  GEO_phenotypes_450k <- GEO_phenotypes[GEO_phenotypes$ArrayType=='450K',]
+  # get 450k, meta data for the tissue
+  GEO_phenotypes_Tissue <- GEO_phenotypes_450k %>% 
+  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
+  filter(str_detect(Disease, pattern="Uncomplicated$"))
+  
+  }else if(Array == "EPIC"){
+  
+  GEO_phenotypes_EPIC <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
+  # get EPIC, meta data for the tissue
+  GEO_phenotypes_Tissue <- GEO_phenotypes_EPIC %>% 
+  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
+  filter(str_detect(Disease, pattern="Uncomplicated$"))
+  
+  }
+  
+  if(Study=="ourStudy"){
+  GEO_phenotypes_EPIC <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
+  # get EPIC, meta data for the tissue
+  GEO_phenotypes_Tissue <- GEO_phenotypes_EPIC %>% 
+  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
+  filter(str_detect(Study, pattern="ourStudy"))
+  }
+  
+  # then get beta values for each tissue type
+  Normal_betaNorm_forPlot <- get(Normal_betaNorm)$Beta
+  
+  # plotMDS plots
+  if(Normal_betaNorm=="BM_450k_normalPlacenta_v1"){
+     label <- GEO_phenotypes_Tissue$Trimester[-5]
+  }else if(Normal_betaNorm=="BM_450k_MaternalBlood_v1"){
+     label <- GEO_phenotypes_Tissue$Trimester[-8]
+  }else{
+     label <- GEO_phenotypes_Tissue$Trimester
+  } # end if
+
+  if(ncol(Normal_betaNorm_forPlot)>=3){
+  par(mfrow=c(1,1), ...)
+  plotMDS(Normal_betaNorm_forPlot, top=nrow(Normal_betaNorm_forPlot), 
+          main=Tissue,  labels= label, gene.selection="common") 
+  }
+  # labels= label, col= pal[factor(label)],
+
+  # plot density plot anagin with other 96 samples 
+  par(mfrow=c(1,1), cex=0.8, ...)
+  densityPlot(Normal_betaNorm_forPlot, sampGroups = label, 
+              main=Tissue, xlab = "Normalised Beta values")
+
+}# end function
+
+
+```
+
+
+## B) Use function `plotMDSFUN`
+
+```{r UseplotMDSFUN}
+
+TissueBMvalInfo <- data_frame(
+  TissueBMvalNames=c("BM_450k_normalPlacenta_v1", "BM_EPIC_normalPlacenta",
+                     "BM_EPIC_normalPlacenta_ourStudy",
+                     "BM_450k_Amnion", "BM_EPIC_Amnion",
+                     "BM_450k_Chorion", "BM_EPIC_Chorion",
+                     "BM_450k_Decidua", "BM_EPIC_Decidua",
+                     "BM_450k_MaternalBlood_v1", "BM_450k_mesenchyme",
+                     "BM_450k_trophoblast", 
+                     "BM_450k_UC", "BM_450k_UCB"
+                      ),
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
+                "Maternal whole blood", "placental mesenchyme", 
+                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+)
+
+
+# use plotMDSFUN function
+for(i in TissueBMvalInfo$TissueBMvalNames){
+  
+  plotMDSFUN(Normal_betaNorm = i, 
+             Tissue = TissueBMvalInfo[TissueBMvalInfo$TissueBMvalNames%in%i,]$TissueTypes, 
+             PhenoData = GEO_phenotypes, 
+             Array = ifelse(str_detect(i, pattern = "450k"), "450k", "EPIC"),
+             Study = ifelse(str_detect(i, pattern = "ourStudy"), "ourStudy", "PublicStudy"))
+}
+
+```
+
+
+## C) left_join all beta values and plot in one MDS plot
+```{r, joinAllBetas}
+registerDoParallel(cores = 10)
+
+ListToJoin <- list(
+
+BM_450k_normalPlacenta_v1.df = BM_450k_normalPlacenta_v1$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+BM_EPIC_normalPlacenta.df = BM_EPIC_normalPlacenta$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+BM_EPIC_normalPlacenta_ourStudy.df = BM_EPIC_normalPlacenta_ourStudy$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_Amnion.df = BM_450k_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+BM_EPIC_Amnion.df = BM_EPIC_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_Chorion.df = BM_450k_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+BM_EPIC_Chorion.df = BM_EPIC_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_Decidua.df = BM_450k_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+BM_EPIC_Decidua.df = BM_EPIC_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_MaternalBlood_v1.df = BM_450k_MaternalBlood_v1$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_mesenchyme.df = BM_450k_mesenchyme$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_trophoblast.df = BM_450k_trophoblast$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_UC.df = BM_450k_UC$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+
+BM_450k_UCB.df = BM_450k_UCB$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe")
+
+)
+
+Join.df <- ListToJoin %>% purrr::reduce(left_join, by = "Probe")
+
+Join.df_v1 <- na.omit(Join.df)
+
+Join.df_v2 <- Join.df_v1 %>% remove_rownames() %>% 
+  column_to_rownames(var="Probe") %>% as.matrix() # 298179
+
+#plotMDS plots
+## get labels (label the tissue types) for each sample
+Tissues <-str_replace_all(names(ListToJoin), c("BM_450k_|BM_EPIC_"="", "_v1.df|.df"=""))
+Tissues_v1 <-str_replace_all(Tissues, c("normalPlacenta"="Placenta", 
+                                        "mesenchyme"="Placental mesenchyme",
+                                        "trophoblast"="Placental trophoblast",
+                                        "UCB"="Umbilical cord blood",
+                                        "UC"="Umbilical cord"))
+
+freq <- lapply(ListToJoin, FUN = function(x){ncol(x)-1}) %>% unlist() %>% as.integer()
+label <- rep(Tissues_v1, freq)
+
+## phenodata for these samples
+GEO_phenotypes_joinedSamples <- GEO_phenotypes[match(colnames(Join.df_v2),GEO_phenotypes$Sample_name),]
+
+## plot MDS plot
+par(mfrow=c(1,1))
+MDS_joinedSamples <- plotMDS(Join.df_v2, top=nrow(Join.df_v2), labels= label, gene.selection="common") # labels= label, col= pal[factor(label)],
+
+# plot density plot anagin with other 96 samples 
+par(mfrow=c(1,1), cex=0.8)
+densityPlot(Join.df_v2, sampGroups = label, xlab = "Normalised Beta values")
+
+
+save(Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples, 
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+
+```
+
+
+## D) 1 MDS for all 551 samples
+```{r}
+
+library(RColorBrewer)
+colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
+pal2 <- colorFun(13)
+
+# Join.df_v2, label, GEO_phenotypes_joinedSamples, MDS_joinedSamples, 
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+
+# set up nes df for ggplot
+## check sample orders were the same or not
+table(colnames(Join.df_v2)==GEO_phenotypes_joinedSamples$Sample_name)
+
+new_plotDF <- data.frame(MDS_joinedSamples$x, 
+    MDS_joinedSamples$y,
+    GA = GEO_phenotypes_joinedSamples$Gestation,
+    FetalSex= GEO_phenotypes_joinedSamples$Fetal_Sex,
+    Tissue=str_replace_all(GEO_phenotypes_joinedSamples$Sample, c(
+                                        "placental"="Placental",
+                                        "umbilical"="Umbilical")),
+    Trimester=GEO_phenotypes_joinedSamples$Trimester,
+    Study=GEO_phenotypes_joinedSamples$Study
+    
+)
+
+colnames(new_plotDF) <- c("x", "y", "Gestational age", "FetalSex", "Tissue", "Trimester", "Study")
+
+# Plot the new dataframe
+## color to use
+namedPal2 <- pal2 %>% `names<-`(unique(new_plotDF$Tissue))
+TissueShape <- factor(new_plotDF$Tissue)
+
+MDSplot_joinedSamples <- new_plotDF %>%
+  ggplot(aes(x, y)) + 
+  geom_point(aes(shape = Study, col=Trimester), alpha = 1, size = 5)+ 
+  # scale_color_manual(values = namedPal2)+
+  scale_shape_manual(values=1:length(new_plotDF$Study))+
+  labs(x="Dimension 1", y="Dimension 2")+
+  theme(text = element_text(size=20))
+# axis.text.x = element_text(angle=90, hjust=1)) 
+
+
+# save the MDS plot as pdf:
+pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples551.pdf", 
+    width = 13, height = 7)
+
+theme_set(theme_bw())
+MDSplot_joinedSamples
+dev.off()
+
+# save as tiff
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples551.tiff", 
+     width = 20,height = 15, units="cm",  res = 300)
+
+theme_set(theme_bw())
+MDSplot_joinedSamples
+dev.off()
+
+## show some plots
+###(1)
+theme_set(theme_bw())
+MDSplot_joinedSamples
+
+###(2)
+new_plotDF %>%
+  ggplot(aes(x, y)) + 
+  geom_point(aes(shape = Tissue, col=Trimester), alpha = 1, size = 5)+ 
+  # scale_color_manual(values = namedPal2)+
+  scale_shape_manual(values=1:nlevels(TissueShape))+
+  labs(x="Dimension 1", y="Dimension 2")+
+  theme(text = element_text(size=15))
+
+```
+
+* There seems to be batch effects between studies, so we need to remove batch effects before doing MDS and other downstream analysis. I will adjusted for batch use Combat or modified BMIQ function by Horvath.
+
+
+

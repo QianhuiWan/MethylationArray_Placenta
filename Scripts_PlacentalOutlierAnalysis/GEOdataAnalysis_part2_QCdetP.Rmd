@@ -1,0 +1,155 @@
+---
+title: "technical report (mainly 450k data, 15 GEO data sets used)"
+author: "Qianhui"
+date: "21/11/2018"
+output: html_document
+---
+
+This document is mainly for part2 of the GEO data set analysis, that is the quality control and visulisation of QC results from different tissue types.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r loadDataAndPackage, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(limma)
+library(doParallel)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+#GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta, 
+#GEO_RGset_EPIC_normalPlacenta, GEO_phenoData_EPIC_normalPlacenta, 
+#GEO_RGset_EPIC_normalPlacenta_ourStudy, GEO_phenoData_EPIC_normalPlacenta_ourStudy
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
+
+#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion, GEO_RGset_EPIC_Amnion, GEO_phenoData_EPIC_Amnion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
+
+#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion,GEO_RGset_EPIC_Chorion, GEO_phenoData_EPIC_Chorion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalChorion.RData")
+
+#GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua, GEO_RGset_EPIC_Decidua, GEO_phenoData_EPIC_Decidua, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDecidua.RData")
+
+#GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
+
+#GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+
+#GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+
+#GEO_RGset_450k_UC, GEO_phenoData_450k_UC
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+
+#GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
+
+```
+
+
+# 2. Quality control berfore preprocessing
+
+When doing this step, we want to know the general quality of the array data sets. We want to check whether there were failed samples in these data sets. We check different tissue type separately.
+
+## Function for detectionP, QC plot and MDS and density plot of raw beta values
+```{r QCfunction}
+# let argument RGset to be a charactor
+DetectionP_QC <- function(RGsetChara){
+  registerDoParallel(cores = 10)
+  # get phenodata
+  RGset <- get(RGsetChara)
+  phenoData <- pData(RGset)
+  
+  # detectionP
+  detP <- minfi::detectionP(RGset)
+  # calculate the percentage of failed probes for each sampel
+  FailedProbePerc <- colSums(detP>0.01)/nrow(RGset) 
+  
+  # look at the mean detection P-values across all samples to identify any failed samples
+  # barplot(colMeans(detP), col=pal[6], las=2,
+    barplot(FailedProbePerc, col=pal[6], las=2,
+
+        cex.names=0.8, ylim=c(0,0.1),
+        # convert variable name to string
+        # xlab = deparse(substitute(RGset)), 
+        xlab = RGsetChara, 
+        ylab = "Percentage of failed probes for each sampel",
+        axisnames = FALSE)
+  abline(h=0.1,col="red")
+  
+  # get the QC plot
+  MethylSet <- preprocessRaw(RGset)
+  QC <- getQC(MethylSet) 
+  plotQC(QC)
+  
+  #control strip plots
+  controlStripPlot(RGset,
+                   controls = c("BISULFITE CONVERSION I",
+                              "BISULFITE CONVERSION II",
+                              "EXTENSION",
+                              "SPECIFICITY I",
+                              "SPECIFICITY II"),
+                   sampNames = rownames(phenoData),
+                   xlim = c(2, 17))
+  
+  # # MDS plot of raw beta values
+  # betaRaw <- minfi::getBeta(RGset)
+  # 
+  # colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
+  # pal2 <- colorFun(10)
+  # 
+  # par(mfrow=c(1,1))
+  # plotMDS(betaRaw, top=485512, labels= phenoData$Trimester,       
+  #         gene.selection="common", col=pal2[factor(phenoData$Fetal_Sex, levels = c('Female', 'Male'))])
+  # legend("bottomleft", legend = c('Female', 'Male'), 
+  #      text.col = pal2, bg="white", cex = 0.3)
+  # 
+  # # density plot of raw beta values
+  # par(cex=0.5)
+  # densityPlot(betaRaw,
+  #           sampGroups = phenoData$Trimester,
+  #           legend=TRUE,
+  #           xlab = "Beta values", pal = pal2)
+
+}
+
+
+```
+
+
+## DetectionP_QC for each tissue types (data from GEO data base)
+```{r QCforAllTissues}
+
+TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
+                      "GEO_RGset_EPIC_normalPlacenta_ourStudy",
+                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
+                      "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
+                      "GEO_RGset_450k_trophoblast", 
+                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      )
+
+for(i in TissueRGsetNames){
+  
+DetectionP_QC(RGsetChara = i)
+
+}
+
+```
+
+
+
