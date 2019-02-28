@@ -7,6 +7,8 @@ library(doParallel)
 library(ggplot2)
 library(ggpubr)
 library(RColorBrewer)
+theme_set(theme_pubr())
+
 registerDoParallel(cores=10)
 
 # load data 
@@ -90,7 +92,7 @@ PCAplot_norm551 <- new_plotDF %>%
 pdf(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples551.pdf"),
     width = 13, height = 7)
 
-theme_set(theme_bw())
+# theme_set(theme_bw())
 PCAplot_norm551
 dev.off()
 
@@ -98,12 +100,12 @@ dev.off()
 tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples551.tiff"), 
      width = 20,height = 15, units="cm",  res = 300)
 
-theme_set(theme_bw())
+# theme_set(theme_bw())
 PCAplot_norm551
 dev.off()
 
 # show the plot
-theme_set(theme_bw())
+# theme_set(theme_bw())
 PCAplot_norm551 %>% print()
 
 # return new_plotDF
@@ -132,7 +134,7 @@ PCA551plot <- PCA551 %>%
 
 tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", "allPCA551", "_joinedGEOsamples551.tiff"), 
      width = 20,height = 15, units="cm",  res = 300)
-theme_set(theme_bw())
+# theme_set(theme_bw())
 PCA551plot
 dev.off()
 
@@ -172,14 +174,14 @@ PCATermplot <- PCA551_Term %>%
 
 tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551_First.tiff",
      width = 6, height = 4, units = "cm", res = 300)
-theme_set(theme_pubr())
+# theme_set(theme_pubr())
 PCAT1plot
 dev.off()
 
 
 tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TermSamples_PCA551_First.tiff",
      width = 20, height = 12, units = "cm", res = 300)
-theme_set(theme_bw())
+# theme_set(theme_bw())
 PCATermplot
 dev.off()
 
@@ -197,5 +199,8 @@ tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551_3plot
 PCAs 
 dev.off()
 
+saveRDS(PCA551plot, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA551samples.rds")
+saveRDS(PCAT1plot, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCAT1plot.rds")
+saveRDS(PCATermplot, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCATermPlot.rds")
 
 saveRDS(PCAs, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA551_3plots.rds")
