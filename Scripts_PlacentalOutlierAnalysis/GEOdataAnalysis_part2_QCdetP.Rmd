@@ -46,13 +46,13 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDec
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
 
 #GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
 
 #GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
 
 #GEO_RGset_450k_UC, GEO_phenoData_450k_UC
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
 
 #GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
@@ -135,12 +135,16 @@ DetectionP_QC <- function(RGsetChara){
 
 TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
                       "GEO_RGset_EPIC_normalPlacenta_ourStudy",
-                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Amnion", 
+                      # "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", 
+                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
-                      "GEO_RGset_450k_trophoblast", 
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      "GEO_RGset_450k_MaternalBlood", 
+                      # "GEO_RGset_450k_mesenchyme",
+                      # "GEO_RGset_450k_trophoblast", 
+                      # "GEO_RGset_450k_UC", 
+                      "GEO_RGset_450k_UCB"
                       )
 
 for(i in TissueRGsetNames){

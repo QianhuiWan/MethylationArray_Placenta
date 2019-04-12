@@ -39,10 +39,10 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.
 #GEO_RGset_EPIC_normalPlacenta_ourStudy, GEO_phenoData_EPIC_normalPlacenta_ourStudy
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
 
-#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion, GEO_RGset_EPIC_Amnion, GEO_phenoData_EPIC_Amnion
+#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
 
-#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion,GEO_RGset_EPIC_Chorion, GEO_phenoData_EPIC_Chorion
+#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalChorion.RData")
 
 #GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua, GEO_RGset_EPIC_Decidua, GEO_phenoData_EPIC_Decidua, 
@@ -52,13 +52,13 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDec
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
 
 #GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
 
 #GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
 
 #GEO_RGset_450k_UC, GEO_phenoData_450k_UC
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
 
 #GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
@@ -146,12 +146,16 @@ GEO_RGset_450k_MaternalBlood <- GEO_RGset_450k_MaternalBlood[,-8]
 TissueRGsetNames <- c(
                       "GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
                       "GEO_RGset_EPIC_normalPlacenta_ourStudy",
-                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Amnion", 
+                      # "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", 
+                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
-                      "GEO_RGset_450k_trophoblast", 
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      "GEO_RGset_450k_MaternalBlood", 
+                      # "GEO_RGset_450k_mesenchyme",
+                      # "GEO_RGset_450k_trophoblast", 
+                      # "GEO_RGset_450k_UC", 
+                      "GEO_RGset_450k_UCB"
                       )
 
 
@@ -175,12 +179,16 @@ save(list=c(paste0("ControlBM", str_replace_all(i, "GEO_RGset", ""))),
 ControlBMvalInfo <- tibble(
   TissueRGsetNames = c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
                        "GEO_RGset_EPIC_normalPlacenta_ourStudy",
-                       "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                       "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                       "GEO_RGset_450k_Amnion", 
+                       # "GEO_RGset_EPIC_Amnion",
+                       "GEO_RGset_450k_Chorion", 
+                       # "GEO_RGset_EPIC_Chorion",
                        "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                       "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
-                       "GEO_RGset_450k_trophoblast", 
-                       "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                       "GEO_RGset_450k_MaternalBlood", 
+                       # "GEO_RGset_450k_mesenchyme",
+                       # "GEO_RGset_450k_trophoblast", 
+                       # "GEO_RGset_450k_UC", 
+                       "GEO_RGset_450k_UCB"
                       ),
   ControlBMvalNames = paste0("ControlBM", str_replace_all(TissueRGsetNames, "GEO_RGset", ""))
 )
@@ -257,6 +265,47 @@ Control551_M <- JoinAndPlotAllControl(ControlBMvalInfo =  ControlBMvalInfo,
 save(Control551_Beta, Control551_M,
      file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Controls_BM_all551.RData")
 ```
+
+
+## plot control probes
+
+```{r}
+
+new_plotDF <- data.frame(x=Control551_M$PCA_control$ind$coord[,1], 
+    y=Control551_M$PCA_control$ind$coord[,2],
+    GA = Control551_M$phenoDataAll$Gestation,
+    FetalSex= Control551_M$phenoDataAll$Fetal_Sex,
+    Tissue= Control551_M$phenoDataAll$Sample,
+    Trimester=Control551_M$phenoDataAll$Trimester,
+    Study=Control551_M$phenoDataAll$Study
+)
+colnames(new_plotDF) <- c("x", "y", "Gestational age", "FetalSex", "Tissue", "Trimester", "Study")
+
+# Plot the new dataframe
+## color to use
+colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
+pal2 <- colorFun(15)
+namedPal2 <- pal2 %>% `names<-`(unique(new_plotDF$Tissue))
+
+namedPal2 <- pal2 %>% `names<-`(unique(new_plotDF$Study))
+
+PCAplotOtherControlTissue <- new_plotDF %>%
+  ggplot(aes(x, y)) + 
+  geom_point(aes(col = Study), alpha = 1, size = 5)+
+  # geom_point(aes(shape = Tissue, col=Trimester), alpha = 1, size = 5)+ 
+  # scale_colour_gradient(low = "#56B1F7", high = "#132B43")+
+  # scale_color_brewer(palette = "Set1")
+  scale_color_manual(values = namedPal2)+
+  # scale_shape_manual(values=1:length(new_plotDF$Tissue))+
+  labs(x="Dimension 1", y="Dimension 2")+
+  theme(text = element_text(size=15))
+  labs(x="Dimension 1", y="Dimension 2")+
+  theme(text = element_text(size=20))
+# axis.text.x = element_text(angle=90, hjust=1)) 
+  
+PCAplotOtherControlTissue
+```
+
 
 
 
