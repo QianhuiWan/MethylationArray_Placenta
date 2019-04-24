@@ -73,6 +73,7 @@ ICRsGR <- ICRs %>% na.omit() %>% inset('ICR_Type', value=ICR_Type) %>%
            mutate(MeanBetaValue=str_replace_all(`Infinium beta value (min-max)`, " [(].+[)]", "")) %>% 
            dplyr::select(ICR_Type:MeanBetaValue) %>% 
            dplyr::filter(ICR_Type!="otherICRs") %>% 
+           mutate(start = replace(start, which(Gene == "NESP-AS/GNAS-AS1"), 57425649)) %>% 
            as_granges()
   
 ```
@@ -185,11 +186,14 @@ GRangeProbesForICRs_Term <- GRangeProbe_Term
 ```
 
 ## 2.3 Gviz plot for ICR (Chr9, GLIS3)
+
+Note: The placenta-specific ICR were ICR46-59; ICR 1-45 were ubiquitously imprinted ICRs.
+
 ```{r}
 
 # Gviz plot for each ICR
-# 1:length(ICRsGR)
-for(i in 46){
+# 1:length(ICRsGR) #46
+for(i in 1:length(ICRsGR)){
 
 genome <- "hg19"
 
@@ -214,8 +218,8 @@ gTrack <- GenomeAxisTrack(col="black", cex=0.7, name = "", fontcolor="black", ad
 #### ICR track
 ICRTrack <- AnnotationTrack(range=ICRsGR, gensome = genome, chromosome = chrom, 
                             start = start, end = end,
-                            name = paste0("ICR\n(GLIS3)",i),
-                            id="ICR of GLIS3",
+                            # name = paste0("ICR\n(GLIS3)",i),
+                            id=paste0("ICR of ", ICRsGR$Gene[i]),
                             fontcolor.feature="black",
                             col.title="black",
                             #groupAnnotation=NULL,
@@ -228,12 +232,14 @@ ICRTrack <- AnnotationTrack(range=ICRsGR, gensome = genome, chromosome = chrom,
 library(RColorBrewer)
 # colorFun <- colorRampPalette(brewer.pal(9,"Blues")[3:9])
 # colorFun <- colorRampPalette(brewer.pal(9,"YlOrRd"))
+PhenodataPlacenta$Outlier2 <- str_replace_all(PhenodataPlacenta$Outlier, c("Outlier"="Impure", "Standard"="Pure"))
+PhenodataPlacenta_Term$Outlier2 <- str_replace_all(PhenodataPlacenta_Term$Outlier, c("Outlier"="Impure", "Standard"="Pure"))
 
 methTrack_T1 <- DataTrack(
-  range = GRangeProbesForICRs[,4:35],
+  range = GRangeProbesForICRs[,4:24],
   genome = genome, chromosome = chrom, start = minbase, end = maxbase,
   # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
-  groups=factor(PhenodataPlacenta$Outlier),
+  groups=factor(PhenodataPlacenta$Outlier2),
   ylim= c(0, 1.00),
   # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
   # col=brewer.pal(8,"Dark2")[c(3,4,2,1)],
@@ -258,7 +264,7 @@ methTrack_Term <- DataTrack(
   range = GRangeProbesForICRs_Term[,4:345],
   genome = genome, chromosome = chrom, start = minbase, end = maxbase,
   # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
-  groups=factor(PhenodataPlacenta_Term$Outlier),
+  groups=factor(PhenodataPlacenta_Term$Outlier2),
   ylim= c(0, 1.00),
   # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
   # col=brewer.pal(8,"Dark2")[c(3,4,2,1)],
@@ -296,7 +302,7 @@ plotTracks(tracks,
            #showFeatureId=TRUE,
            length(tracks))
 
-tiff(filename = paste0("/home/qianhui/DNAme/Process_decidual/ICRs/ICRfigures/Gviz_T1samples_ICR_", i, "_v1.tiff"), 
+tiff(filename = paste0("/home/qianhui/DNAme/Process_decidual/ICRs/ICRfigures/Gviz_T1Termsamples_ICR_", i, ".tiff"), 
      width = 10, height = 8, units = "cm", res = 300)
 plotTracks(tracks, 
            from = minbase-1 , to = maxbase+1, 
@@ -349,7 +355,7 @@ dev.off()
 
 ```{r}
 # T1 samples
-ProbesBetaInICR <- find_overlaps(ICRsGR[ICRsGR$ICR_Type%in%"PlacentaSpecific",], GRangeProbesForICRs)[,c(6,8:39)] %>% 
+ProbesBetaInICR <- find_overlaps(ICRsGR[ICRsGR$ICR_Type%in%"PlacentaSpecific",], GRangeProbesForICRs)[,c(2,6,8:28)] %>% 
   mcols() %>% unique() %>% as.data.frame() %>% 
   remove_rownames() #%>% column_to_rownames(var="Name")
 
@@ -368,7 +374,7 @@ ProbesBetaInICR_long <- ProbesBetaInICR_T1Term %>% as.data.frame() %>%
   gather(key = "sampleName",
          value = "Betas",
          # contains("mean_")
-         -Name
+         -c(Name, Gene)
          )
 
 ## add outlier information as a column
@@ -381,19 +387,15 @@ PhenodataPlacentaT1Term_v1 <- PhenodataPlacentaT1Term %>% mutate(sampleName=Samp
 
 ProbesBetaInICR_long_v2 <- left_join(ProbesBetaInICR_long_v1, PhenodataPlacentaT1Term_v1, by="sampleName")
 
-
 #color setting
 pal <- brewer.pal(8, "Dark2")
 pal2 <- c("#08519C",pal[2])
 namedPal2 <- pal2 %>% `names<-`(unique(ProbesBetaInICR_long_v2$Outliers))
 
 # plot and save the violin plot
-tiff(file = "/home/qianhui/DNAme/Process_decidual/ICRs/ICRfigures/ICRprobes_violinPlot_374Placenta.tiff", 
-     width = 10, height = 7, units = "cm", res = 300)
-theme_set(theme_pubr())
-ggplot(ProbesBetaInICR_long_v2, aes(Outlier, Betas, fill=Outliers))+ 
+ICRsViolinPlot <- ggplot(ProbesBetaInICR_long_v2, aes(Outlier, Betas, fill=Outliers))+ 
   geom_violin(trim = T, aes(fill=Outlier))+ 
-  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Outliers", "Standard"="Standard"))+
+  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Impure", "Standard"="Pure"))+
   labs(x="", y="Beta values", fill="Placenta")+
   geom_boxplot(width=0.1, fill="white")+
   facet_wrap(~Trimester)+
@@ -403,12 +405,47 @@ ggplot(ProbesBetaInICR_long_v2, aes(Outlier, Betas, fill=Outliers))+
         axis.text.y=element_text(size=10, colour = "black"),
         legend.position = "right", 
         strip.text.x = element_text(size = 10, colour = "black"))
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/ICRs/ICRfigures/ICRprobes_violinPlot_374Placenta.tiff", 
+     width = 10, height = 7, units = "cm", res = 300)
+theme_set(theme_pubr())
+ICRsViolinPlot
 dev.off()
 
 ```
 
 
-# 3. Plot beta values and ICRs (Term samples)
+### plot T1 & term seperatly, facet_wrap by Trimester
+```{r}
+
+T1TermICRGenes<- ggplot(ProbesBetaInICR_long_v2,  #[ProbesBetaInICR_long_v2$Trimester%in%"First",]
+       aes(Gene, Betas, fill=Outliers))+ 
+  # geom_violin(trim = T, aes(fill=Outlier))+ 
+  geom_boxplot(aes(fill=Outlier))+ 
+  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Impure", "Standard"="Pure"))+
+  labs(x="", y="Beta values", fill="Placenta")+
+  # geom_boxplot(width=0.1, fill="white")+
+  facet_wrap(~Trimester, nrow = 2, ncol = 1)+
+  theme(text = element_text(size=10, colour = "black"),
+        axis.text.x=element_text(size=9, angle = 45, vjust = 0.9, hjust = 0.95, colour = "black"),
+        # axis.text.x=element_blank(),
+        axis.text.y=element_text(size=10, colour = "black"),
+        legend.position = "right", 
+        strip.text.x = element_text(size = 10, colour = "black"))
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/ICRs/ICRfigures/ICRgenes_violinPlot_T1TermPlacenta.tiff", 
+     width = 20, height = 15, units = "cm", res = 300)
+theme_set(theme_pubr())
+T1TermICRGenes
+dev.off()
+
+T1TermICRGenes
+
+```
+
+
+
+# 3. Plot beta values and ICRs (Term samples). (the codes below were not needed)
 
 The placenta-specific ICR were ICR46-59; ICR 1-45 were ubiquitously imprinted ICRs.
 

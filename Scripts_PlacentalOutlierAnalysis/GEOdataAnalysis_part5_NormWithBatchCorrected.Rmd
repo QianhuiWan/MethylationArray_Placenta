@@ -95,10 +95,12 @@ registerDoParallel(cores = 10)
   
   # do BMIQ normalisation for all Msets
   Msets <- c('Mset_450k_normalPlacenta_v1', 'Mset_EPIC_normalPlacenta', 'Mset_EPIC_normalPlacenta_ourStudy',
-           'Mset_450k_Amnion', 'Mset_EPIC_Amnion',
-           'Mset_450k_Chorion', 'Mset_EPIC_Chorion','Mset_450k_Decidua', 'Mset_EPIC_Decidua', 
-           'Mset_450k_MaternalBlood_v1', 'Mset_450k_mesenchyme','Mset_450k_trophoblast', 
-           'Mset_450k_UC', 'Mset_450k_UCB')
+           'Mset_450k_Amnion', #'Mset_EPIC_Amnion',
+           'Mset_450k_Chorion', #'Mset_EPIC_Chorion',
+           'Mset_450k_Decidua', 'Mset_EPIC_Decidua', 
+           'Mset_450k_MaternalBlood_v1', #'Mset_450k_mesenchyme','Mset_450k_trophoblast', 
+           # 'Mset_450k_UC', 
+           'Mset_450k_UCB')
   
   ## normalise beta value for this tissue type
   ListToJoin <- list()
@@ -149,138 +151,6 @@ registerDoParallel(cores = 10)
   
 ```  
   
-
-#### `CalibrateFUN` calibrate all tissue types together, while `CalibrateFUN2` calibrate data from different tissue types separately.
-
-**TissueType could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord, Umbilical cord blood.**
-
-```{r} 
-  # write the BMIQ_calibration function: `CalibrateFUN` calibrate all tissue types together
-CalibrateFUN <- function(GoldStaStudy){
-  
-  # load data
-  NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
-
-  ## subset beta values for gold standard
-  GoldSta <- NormBMlist$phenoDataAll[NormBMlist$phenoDataAll$Study%in%GoldStaStudy,]
-  BetaMat_GoldSta <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%GoldSta$Sample_name, drop=FALSE]
-
-  # calculate gold standard mean
-  BetaMat_GoldSta_t <- BetaMat_GoldSta %>% t()
-  gold.mean=as.numeric(apply(BetaMat_GoldSta_t,2,mean,na.rm=TRUE))
-  
-  # use `BMIQcalibration` to normalise data; for inputs, rows are samples, colums are CpGs.
-  BetaMat_Calibrated <- BMIQcalibration(datM=t(NormBMlist$NormBAll), goldstandard.beta=gold.mean)
-  BetaMat_Calibrated_t <- BetaMat_Calibrated %>% t()
-
-  # match phenodata
-  BetaMat_Calibrated_phenoData <-  NormBMlist$phenoDataAll[
-    match(colnames(BetaMat_Calibrated_t), NormBMlist$phenoDataAll$Sample_name),]
-  
-  # return list containing beta and M values
-  ## calculate M values
-  MMat_Calibrated <- log2(BetaMat_Calibrated_t/(1 - BetaMat_Calibrated_t))
-  MMat_Calibrated_v1 <- 
-      MMat_Calibrated[apply(MMat_Calibrated, 1, function(x) all(is.finite(x))), , drop=FALSE]
-
-  # return beta and M values
-  BM_List <- list(Beta = BetaMat_Calibrated_t, 
-                  BetaPhenoData = BetaMat_Calibrated_phenoData,
-                  M = MMat_Calibrated_v1)
-  return(BM_List)
-
-}
-
-
-# if I want to calibrate different tissue types seperately, I can use the following function
-# CalibrateFUN2 <- function(GoldStaStudy){
-#   registerDoParallel(cores = 10)
-# 
-#   # load data
-#   NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
-#   
-#   # all 9 tissue types
-#   # We removed "Maternal whole blood", because all maternal blood samples are from GSE66210, not the GSE74738
-#   TissueTypes <- c("Placenta", "Amnion", "Chorion", "Decidua",
-#                 "placental mesenchyme", 
-#                 "placental trophoblast", "umbilical cord", "Umbilical cord blood")
-#   
-#   # create a list to hold all calibrated B values
-#   ListToJoin <- list()
-#   
-#   for(i in TissueTypes){
-#   # subset pheno data for each tissue type  
-#   sampleNamesForOneTissue <- NormBMlist$phenoDataAll[NormBMlist$phenoDataAll$Sample%in%i,,drop=FALSE]
-#   
-#   BetaMat_1Tissue <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%sampleNamesForOneTissue$Sample_name, drop=FALSE]
-#   
-#   ## subset beta values for gold standard
-#   GoldStaForOneTissue <- NormBMlist$phenoDataAll[NormBMlist$phenoDataAll$Sample%in%i &
-#                                                  NormBMlist$phenoDataAll$Study%in%GoldStaStudy,,drop=FALSE]
-#   
-#   BetaMat_1Tissue_GoldSta <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%GoldStaForOneTissue$Sample_name,
-#                                                  drop=FALSE]
-#   
-#   # calculate gold standard mean
-#   BetaMat_1Tissue_GoldSta_t <- BetaMat_1Tissue_GoldSta %>% t()
-#   gold.mean=as.numeric(apply(BetaMat_1Tissue_GoldSta_t,2,mean,na.rm=TRUE))
-# 
-#   # use `BMIQcalibration` to normalise data; for inputs, rows are samples, colums are CpGs.
-#   BetaMat_1TissueCalibrated <- BMIQcalibration(datM=t(BetaMat_1Tissue), goldstandard.beta=gold.mean)
-#   BetaMat_1TissueCalibrated_t <- BetaMat_1TissueCalibrated %>% t()
-# 
-#   # names for the list
-#   listElements <- paste0("normCaliB_", str_replace_all(i, " ", "_"), ".df")
-# 
-#   # fill the list with beta values (9 tissue types)
-#   ListToJoin[[listElements]] <- BetaMat_1TissueCalibrated_t %>% 
-#                          as.data.frame() %>% rownames_to_column(var="Probe")
-#   } # end for
-#   
-#   # left_join values, to join all samples
-#   Join_allNormCali.df <- ListToJoin %>% purrr::reduce(left_join, by = "Probe")
-#   
-#   # omit na values
-#   Join_allNormCali.df_v1 <- na.omit(Join_allNormCali.df)
-#   
-#   # as matrix
-#   Join_allNormCali.df_v2 <- Join_allNormCali.df_v1 %>% remove_rownames() %>%
-#   column_to_rownames(var="Probe") %>% as.matrix() # 298179
-#   
-#   # phenotypes of all samples form all the tissue types
-#   AllNormCali_phenotype_matched <-
-#     NormBMlist$phenoDataAll[match(colnames(Join_allNormCali.df_v2),NormBMlist$phenoDataAll$Sample_name),]
-#   
-#   # M values
-#   MnormCali <- log2(Join_allNormCali.df_v2/(1 - Join_allNormCali.df_v2))
-#   MnormCali_v1 <- MnormCali[apply(MnormCali, 1, function(x) all(is.finite(x))), ,drop=FALSE]
-#   
-#   # return beta and M values
-#   BM_List <- list(Beta = Join_allNormCali.df_v2, 
-#                   BetaPhenoData = AllNormCali_phenotype_matched,
-#                   M = MnormCali_v1)
-#   return(BM_List)
-#   
-# }
-
-```
-
-
-## B) Use the function `CalibrateFUN` to get normalised beta and M values for all the samples from 9 kinds of tissues located around placenta during early development.
-
-```{r UseNormFUN}
-#, warning=FALSE, message=FALSE
-# calibrate all data together, gold standard is GSE75248, the biggest study
-normCali_BMof9TissueTypes_CaliTogether <- CalibrateFUN(GoldStaStudy = "GSE75248") 
-
-# calibrate data from different tissue types separately
-# normCali_BMof8TissueTypes <- CalibrateFUN2(GoldStaStudy = "GSE74738") 
-
-saveRDS(normCali_BMof9TissueTypes_CaliTogether,
-    file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/normCali_BMof9TissueTypes_CaliTogether.rds")
-
-```
-
 
 # 3. MDS plot using all data
 
@@ -335,8 +205,9 @@ plotMDSFUN <- function(Normal_betaNorm, Tissue, PhenoData, ...){
 TissueBMvalInfo <- tibble(
   TissueTypes = c("Placenta", "Amnion", "Chorion", "Decidua",
                 "Maternal whole blood",
-                "placental mesenchyme", 
-                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+                # "placental mesenchyme", 
+                # "placental trophoblast", "umbilical cord", 
+                "Umbilical cord blood")
 )
 
 
@@ -351,7 +222,7 @@ for(i in TissueBMvalInfo$TissueTypes){
 ```
 
 
-## B) plot all values (551 samples) in one MDS plot
+## B) plot all values (408 samples) in one MDS plot
 
 ### `plotAll` function
 ```{r joinAllandPlotAll}
@@ -363,22 +234,22 @@ plotAll <- function(BMvalue, GEO_phenotypes_joinedSamples){
   
   #plotMDS plots
   ## phenodata for these samples
-  GEO_phenotypes_551 <- GEO_phenotypes_joinedSamples[match(colnames(BMvalue),
+  GEO_phenotypes_408 <- GEO_phenotypes_joinedSamples[match(colnames(BMvalue),
                                                                GEO_phenotypes_joinedSamples$Sample_name),]
   ## check names all in same order or not
-  table(colnames(BMvalue)==GEO_phenotypes_551$Sample_name)
+  table(colnames(BMvalue)==GEO_phenotypes_408$Sample_name)
 
   ## plot MDS plot
   par(mfrow=c(1,1))
-  MDS_norm551 <- plotMDS(BMvalue, top=nrow(BMvalue), labels= GEO_phenotypes_551$Sample,
+  MDS_norm408 <- plotMDS(BMvalue, top=nrow(BMvalue), labels= GEO_phenotypes_408$Sample,
                          gene.selection="common") 
 
   # plot density plot
   par(mfrow=c(1,1), cex=0.8)
-  densityPlot(BMvalue, sampGroups = GEO_phenotypes_551$Sample, xlab = "Normalised Beta values")
+  densityPlot(BMvalue, sampGroups = GEO_phenotypes_408$Sample, xlab = "Normalised Beta values")
   
   # return Join.df_v2, GEO_phenotypes_norm551 and MDS_norm551
-  output_List <- list(JoinAll=BMvalue, phenoDataAll=GEO_phenotypes_551, MDSnorm551=MDS_norm551)
+  output_List <- list(JoinAll=BMvalue, phenoDataAll=GEO_phenotypes_408, MDSnorm408=MDS_norm408)
   return(output_List)
 }
 
@@ -451,7 +322,7 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
 
 
   # save the MDS plot as pdf:
-  pdf(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples551.pdf"), 
+  pdf(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples408.pdf"), 
     width = 13, height = 7)
 
   theme_set(theme_bw())
@@ -459,7 +330,7 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
   dev.off()
 
   # save as tiff
-  tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples551.tiff"), 
+  tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/MDSplot-Normalised", value, "_joinedGEOsamples408.tiff"), 
      width = 20,height = 15, units="cm",  res = 300)
 
   theme_set(theme_bw())
@@ -732,6 +603,9 @@ AllMMDSinfo %>%
 
 ## A) Use MDS_norm551.M and MDS_norm551.beta objects in `NormBMlist` list: batch not corrected
 ```{r}
+
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+
 # MDS_norm551.M or NormBMlist$MDS_norm551.M
 table(rownames(NormBMlist$MDS_norm551.M$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
 MDSinfo_uncorrected <- ggplotMDS(MDS_norm551 = NormBMlist$MDS_norm551.M, 
@@ -914,8 +788,10 @@ CombatFUN2 <- function(MMat, phenotype, trimester){
 
   if(trimester=="First"){
   TissueTypes <- c("Placenta", "Decidua",
-                "placental mesenchyme", "Maternal whole blood",
-                "placental trophoblast")}
+                # "placental mesenchyme", 
+                "Maternal whole blood"
+                # "placental trophoblast"
+                )}
   
   if(trimester=="Term"){
   TissueTypes <- c("Placenta", "Amnion", "Chorion", "Decidua", "Umbilical cord blood")
@@ -1235,7 +1111,7 @@ MDSinfo_residuals_First %>%
   ggplot(aes(x, y)) + 
   geom_point(aes(shape = Tissue, col=Trimester), alpha = 1, size = 5)+ 
   # scale_color_manual(values = namedPal2)+
-  scale_shape_manual(values=1:length(MDSinfo_residuals_First$Tissue))+
+  scale_shape_manual(values=3:7)+
   labs(x="Dimension 1", y="Dimension 2")+
   theme(text = element_text(size=15))
 dev.off()
@@ -1248,7 +1124,7 @@ MDSinfo_residuals_Term %>%
   ggplot(aes(x, y)) + 
   geom_point(aes(shape = Tissue, col=Trimester), alpha = 1, size = 5)+ 
   scale_color_manual(values = "#00BFC4")+
-  scale_shape_manual(values=1:length(MDSinfo_residuals_Term$Tissue))+
+  scale_shape_manual(values=c(1:3,5,9))+
   labs(x="Dimension 1", y="Dimension 2")+
   theme(text = element_text(size=15))
 dev.off()

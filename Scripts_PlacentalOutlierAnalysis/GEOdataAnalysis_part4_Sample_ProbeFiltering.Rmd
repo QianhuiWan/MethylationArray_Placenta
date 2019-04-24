@@ -38,6 +38,7 @@ pal <- brewer.pal(8, "Dark2")
 
 # GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+GEO_phenotypes_Filtered <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes410_Filtered.rds")
 
 #GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta, 
 #GEO_RGset_EPIC_normalPlacenta, GEO_phenoData_EPIC_normalPlacenta, 
@@ -57,13 +58,13 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDec
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
 
 #GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
 
 #GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
 
 #GEO_RGset_450k_UC, GEO_phenoData_450k_UC
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
 
 #GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
@@ -298,16 +299,23 @@ GEO_RGset_450k_MaternalBlood_v1 <- GEO_RGset_450k_MaternalBlood[,-8]
 TissueRGsetInfo <- data_frame(
   TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
                      "GEO_RGset_EPIC_normalPlacenta_ourStudy",
-                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Amnion", 
+                      # "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", 
+                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_MaternalBlood_v1", "GEO_RGset_450k_mesenchyme",
-                      "GEO_RGset_450k_trophoblast", 
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      "GEO_RGset_450k_MaternalBlood_v1", 
+                      # "GEO_RGset_450k_mesenchyme",
+                      # "GEO_RGset_450k_trophoblast", 
+                      # "GEO_RGset_450k_UC", 
+                      "GEO_RGset_450k_UCB"
                       ),
-  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
-                "Maternal whole blood", "placental mesenchyme", 
-                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
+                "Maternal whole blood", 
+                # "placental mesenchyme", 
+                # "placental trophoblast", 
+                # "umbilical cord", 
+                "Umbilical cord blood")
 )
 
 
@@ -358,16 +366,21 @@ GEO_RGset_450k_MaternalBlood_v1 <- GEO_RGset_450k_MaternalBlood[,-8]
 TissueRGsetInfo <- data_frame(
   TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
                      "GEO_RGset_EPIC_normalPlacenta_ourStudy",
-                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Amnion", 
+                      # "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", 
+                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_MaternalBlood_v1", "GEO_RGset_450k_mesenchyme",
-                      "GEO_RGset_450k_trophoblast", 
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      "GEO_RGset_450k_MaternalBlood_v1", 
+                      # "GEO_RGset_450k_mesenchyme",
+                      # "GEO_RGset_450k_trophoblast", 
+                      # "GEO_RGset_450k_UC", 
+                      "GEO_RGset_450k_UCB"
                       ),
-  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
-                "Maternal whole blood", "placental mesenchyme", 
-                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
+                "Maternal whole blood", #"placental mesenchyme", 
+                # "placental trophoblast", "umbilical cord", 
+                "Umbilical cord blood")
 )
 
 
@@ -422,7 +435,7 @@ save(
 # phenoData: GEO_phenotypes, meta data for all samples
 # Array: "450k" or "EPIC"
 
-plotMDSFUN <- function(Normal_betaNorm, Tissue, PhenoData, Array, Study,...){
+plotMDSFUN <- function(Normal_betaNorm, Tissue, GEO_phenotypes, Array, Study,...){
   registerDoParallel(cores = 10)
 
   if(Array == "450k"){
@@ -488,16 +501,18 @@ plotMDSFUN <- function(Normal_betaNorm, Tissue, PhenoData, Array, Study,...){
 TissueBMvalInfo <- data_frame(
   TissueBMvalNames=c("BM_450k_normalPlacenta_v1", "BM_EPIC_normalPlacenta",
                      "BM_EPIC_normalPlacenta_ourStudy",
-                     "BM_450k_Amnion", "BM_EPIC_Amnion",
-                     "BM_450k_Chorion", "BM_EPIC_Chorion",
+                     "BM_450k_Amnion", #"BM_EPIC_Amnion",
+                     "BM_450k_Chorion", #"BM_EPIC_Chorion",
                      "BM_450k_Decidua", "BM_EPIC_Decidua",
-                     "BM_450k_MaternalBlood_v1", "BM_450k_mesenchyme",
-                     "BM_450k_trophoblast", 
-                     "BM_450k_UC", "BM_450k_UCB"
+                     "BM_450k_MaternalBlood_v1", #"BM_450k_mesenchyme",
+                     # "BM_450k_trophoblast", 
+                     # "BM_450k_UC", 
+                     "BM_450k_UCB"
                       ),
-  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 2), rep("Chorion", 2), rep("Decidua",2),
-                "Maternal whole blood", "placental mesenchyme", 
-                "placental trophoblast", "umbilical cord", "Umbilical cord blood")
+  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
+                "Maternal whole blood",# "placental mesenchyme", 
+                # "placental trophoblast", "umbilical cord", 
+                "Umbilical cord blood")
 )
 
 
@@ -506,7 +521,7 @@ for(i in TissueBMvalInfo$TissueBMvalNames){
   
   plotMDSFUN(Normal_betaNorm = i, 
              Tissue = TissueBMvalInfo[TissueBMvalInfo$TissueBMvalNames%in%i,]$TissueTypes, 
-             PhenoData = GEO_phenotypes, 
+             GEO_phenotypes = GEO_phenotypes_Filtered, # use the filtered GEO phenoTypes data
              Array = ifelse(str_detect(i, pattern = "450k"), "450k", "EPIC"),
              Study = ifelse(str_detect(i, pattern = "ourStudy"), "ourStudy", "PublicStudy"))
 }
@@ -525,21 +540,21 @@ BM_EPIC_normalPlacenta.df = BM_EPIC_normalPlacenta$Beta %>% as.data.frame() %>% 
 BM_EPIC_normalPlacenta_ourStudy.df = BM_EPIC_normalPlacenta_ourStudy$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Amnion.df = BM_450k_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-BM_EPIC_Amnion.df = BM_EPIC_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+# BM_EPIC_Amnion.df = BM_EPIC_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Chorion.df = BM_450k_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-BM_EPIC_Chorion.df = BM_EPIC_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+# BM_EPIC_Chorion.df = BM_EPIC_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Decidua.df = BM_450k_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 BM_EPIC_Decidua.df = BM_EPIC_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_MaternalBlood_v1.df = BM_450k_MaternalBlood_v1$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
-BM_450k_mesenchyme.df = BM_450k_mesenchyme$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+# BM_450k_mesenchyme.df = BM_450k_mesenchyme$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
-BM_450k_trophoblast.df = BM_450k_trophoblast$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+# BM_450k_trophoblast.df = BM_450k_trophoblast$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
-BM_450k_UC.df = BM_450k_UC$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
+# BM_450k_UC.df = BM_450k_UC$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_UCB.df = BM_450k_UCB$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe")
 
@@ -556,10 +571,11 @@ Join.df_v2 <- Join.df_v1 %>% remove_rownames() %>%
 ## get labels (label the tissue types) for each sample
 Tissues <-str_replace_all(names(ListToJoin), c("BM_450k_|BM_EPIC_"="", "_v1.df|.df"=""))
 Tissues_v1 <-str_replace_all(Tissues, c("normalPlacenta"="Placenta", 
-                                        "mesenchyme"="Placental mesenchyme",
-                                        "trophoblast"="Placental trophoblast",
-                                        "UCB"="Umbilical cord blood",
-                                        "UC"="Umbilical cord"))
+                                        # "mesenchyme"="Placental mesenchyme",
+                                        # "trophoblast"="Placental trophoblast",
+                                        "UCB"="Umbilical cord blood"
+                                        # "UC"="Umbilical cord"
+                                        ))
 
 freq <- lapply(ListToJoin, FUN = function(x){ncol(x)-1}) %>% unlist() %>% as.integer()
 label <- rep(Tissues_v1, freq)
@@ -582,7 +598,7 @@ save(Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples,
 ```
 
 
-## D) 1 MDS for all 551 samples
+## D) 1 MDS for all 408 samples
 ```{r}
 
 library(RColorBrewer)
