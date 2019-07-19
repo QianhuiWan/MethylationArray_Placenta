@@ -149,6 +149,8 @@ registerDoParallel(cores = 10)
   
   saveRDS(NormBMlist, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
   
+  # saveRDS(NormBMlist, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_131.rds")
+
 ```  
   
 
@@ -604,7 +606,8 @@ AllMMDSinfo %>%
 ## A) Use MDS_norm551.M and MDS_norm551.beta objects in `NormBMlist` list: batch not corrected
 ```{r}
 
-NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_131.rds")
 
 # MDS_norm551.M or NormBMlist$MDS_norm551.M
 table(rownames(NormBMlist$MDS_norm551.M$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
@@ -620,6 +623,13 @@ MDSinfo_uncorrected %>%
   labs(x="Dimension 1", y="Dimension 2")+
   theme(text = element_text(size=15))
 
+MDSinfo_uncorrected %>%
+  ggplot(aes(x, y)) + 
+  geom_point(aes(shape = Study, col=Trimester), alpha = 1, size = 5)+ 
+  # scale_color_manual(values = namedPal2)+
+  scale_shape_manual(values=1:length(MDSinfo_uncorrected$Study))+
+  labs(x="Dimension 1", y="Dimension 2")+
+  theme(text = element_text(size=15))
 
 # MDS_norm551.Beta or NormBMlist$MDS_norm551.Beta
 table(rownames(NormBMlist$MDS_norm551.Beta$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
@@ -1219,4 +1229,74 @@ MDSinfo %>%
 
 
 ```
+
+
+
+# add detection P values for all beta values from our dataset
+
+## beta values
+```{r}
+
+# GEO_RGset_EPIC_normalPlacenta_ourStudy, GEO_phenoData_EPIC_normalPlacenta_ourStudy
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
+
+# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/MsetsOf9TissueTypes.RData")
+
+
+Beta_ourStudy <- wateRmelon::BMIQ(beta.v = Mset_EPIC_normalPlacenta_ourStudy) %>% 
+  as.data.frame() %>% rownames_to_column(var="Probe")
+
+detectionP <- minfi::detectionP(GEO_RGset_EPIC_normalPlacenta_ourStudy) %>% 
+  `colnames<-`(paste0(colnames(.), "detP")) %>% 
+  as.data.frame() %>% rownames_to_column(var="Probe")
+
+# subset
+SampleBetaAndDetP <- Beta_ourStudy %>% 
+  dplyr::left_join(detectionP, by="Probe") %>% 
+  dplyr::select(Probe, `201332340153_R01C01`, `201332340153_R01C01detP`, `201332340153_R03C01`, `201332340153_R03C01detP`, 
+                `201414140063_R05C01`, `201414140063_R05C01detP`, `201414140063_R06C01`, `201414140063_R06C01detP`,
+                `201414140060_R01C01`, `201414140060_R01C01detP`, `201414140063_R07C01`, `201414140063_R07C01detP`,
+                `201414140060_R04C01`, `201414140060_R04C01detP`, `201332340153_R05C01`, `201332340153_R05C01detP`,
+                `201332340172_R03C01`, `201332340172_R03C01detP`, `201414140063_R08C01`, `201414140063_R08C01detP`
+                )
+
+write_csv(SampleBetaAndDetP, path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/SampleBetaAndDetP.csv")
+
+```
+
+
+## intensities
+```{r}
+
+Mset_EPIC_normalPlacenta_ourStudy <- preprocessRaw(GEO_RGset_EPIC_normalPlacenta_ourStudy)
+
+Meth <- getMeth(Mset_EPIC_normalPlacenta_ourStudy) %>% 
+  `colnames<-`(paste0(colnames(.), "Meth")) %>% 
+  as.data.frame() %>% rownames_to_column(var="Probe")
+
+UnMeth <- getUnmeth(Mset_EPIC_normalPlacenta_ourStudy) %>% 
+  `colnames<-`(paste0(colnames(.), "UnMeth")) %>% 
+  as.data.frame() %>% rownames_to_column(var="Probe")
+
+SampleMethAndDetP <- Meth %>% 
+  dplyr::left_join(UnMeth, by="Probe") %>% 
+  dplyr::left_join(detectionP, by="Probe") %>% 
+  dplyr::select(Probe, `201332340153_R01C01UnMeth`, `201332340153_R01C01Meth`, `201332340153_R01C01detP`, 
+                `201332340153_R03C01UnMeth`, `201332340153_R03C01Meth`, `201332340153_R03C01detP`, 
+                `201414140063_R05C01UnMeth`, `201414140063_R05C01Meth`, `201414140063_R05C01detP`, 
+                `201414140063_R06C01UnMeth`, `201414140063_R06C01Meth`, `201414140063_R06C01detP`,
+                `201414140060_R01C01UnMeth`, `201414140060_R01C01Meth`, `201414140060_R01C01detP`, 
+                `201414140063_R07C01UnMeth`, `201414140063_R07C01Meth`, `201414140063_R07C01detP`,
+                `201414140060_R04C01UnMeth`, `201414140060_R04C01Meth`, `201414140060_R04C01detP`, 
+                `201332340153_R05C01UnMeth`, `201332340153_R05C01Meth`, `201332340153_R05C01detP`,
+                `201332340172_R03C01UnMeth`, `201332340172_R03C01Meth`, `201332340172_R03C01detP`, 
+                `201414140063_R08C01UnMeth`, `201414140063_R08C01Meth`, `201414140063_R08C01detP`
+                )
+
+write_csv(SampleMethAndDetP, path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/SampleMethAndDetP.csv")
+
+```
+
+
 

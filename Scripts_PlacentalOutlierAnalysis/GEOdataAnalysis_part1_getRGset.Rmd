@@ -748,9 +748,14 @@ write_csv(GSE66459.meta_v1, path = "/home/qianhui/DNAme/Process_decidual/GEO_dat
 ```
 
 ## 19. our data
-Add our outliers 5 + 5 normal placenta
-```{r ReadData16}
+### Add our outliers 5 + 5 normal placenta, `GEO_allMetaData_v1.RData`
+```{r ReadOurOrYourData}
 
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1.RData")
+
+OurOrYourDataPhenoFUN <- function(EPICdata){
+
+  if(EPICdata=="OurEPIC10"){
 baseDirOurEPIC <- file.path("/home/qianhui/DNAme/EPICarrayData/idat_files")
 phenotypes <- read.metharray.sheet(baseDirOurEPIC)
 
@@ -786,21 +791,90 @@ write.table(phenotypes_GA6to9_10samples_inGEOformat$Sample_name,
             row.names = FALSE, col.names = FALSE)
 
 # bind our phenodata with GEO meta data
-
 save(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1, 
      GSE75248.meta_v1, GSE93208.meta_v1, GSE115508.meta_v1, GSE120250.meta_v1, 
      GSE100197.meta_v1, GSE98224.meta_v1, GSE106089.meta_v1, GSE71678.meta_v1, 
      GSE113600.meta_v1, GSE66459.meta_v1, phenotypes_GA6to9_10samples_inGEOformat,
-     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1.RData")
+     file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
+}
+  
+  if(EPICdata=="OurEPIC96"){
+    
+baseDir_96 <- file.path("/home/qianhui/DNAme/EPICarrayData/idat_files")
+phenotypes <- read.metharray.sheet(baseDir_96)
+
+phenotypes_GA6to9_10samples_inGEOformat <-  phenotypes %>% 
+  dplyr::filter(Pool_ID%in%"Placental Tissue") %>% 
+  inset('GEO_accession', value=rep("OurData", 96)) %>% 
+  inset('Sample', value=rep('Placenta', 96)) %>% 
+  mutate(Sample_name = str_replace_all(Basename, ".+/", "")) %>% 
+  inset('Disease', value=rep("Uncomplicated", 96)) %>% 
+  mutate(Gestation= as.character(Gestational.Age)) %>% 
+  mutate(Trimester= str_replace_all(Trimester, "1st-Trimester", "First")) %>% 
+  mutate(Additional_Info =Outliers) %>% 
+  inset('Additional_Info_2', value=rep("NA", 96)) %>% 
+  mutate(Fetal_Sex=str_replace_all(Fetal.Sex, c('M'='Male', 'F'='Female'))) %>% 
+  inset('ArrayType', value=rep('EPIC', 96)) %>% 
+  inset('Study', value=rep('ourStudy', 96)) %>% 
+  dplyr::select(GEO_accession:Gestation, Trimester, Additional_Info:Study, Array, Slide)
+
+# bind our phenodata with GEO meta data
+save(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1, 
+     GSE75248.meta_v1, GSE93208.meta_v1, GSE115508.meta_v1, GSE120250.meta_v1, 
+     GSE100197.meta_v1, GSE98224.meta_v1, GSE106089.meta_v1, GSE71678.meta_v1, 
+     GSE113600.meta_v1, GSE66459.meta_v1, phenotypes_GA6to9_10samples_inGEOformat,
+     file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
+
+  }
+  
+   if(EPICdata=="OurEPIC131"){
+    
+# baseDir_131 <- file.path("/home/qianhui/DNAme/EPICarrayData/idat_files")
+phenotypes <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/RDSfiles/phenotypes_bind.rds")
+
+phenotypes_GA6to9_10samples_inGEOformat <-  phenotypes %>% 
+  inset('GEO_accession', value=rep("OurData", nrow(.))) %>% 
+  inset('Sample', value=rep('Placenta', nrow(.))) %>% 
+  mutate(Sample_name = str_replace_all(Basename, ".+/", "")) %>% 
+  inset('Disease', value=rep("Uncomplicated", nrow(.))) %>% 
+  mutate(Gestation= as.character(Gestation_num)) %>% 
+  mutate(Trimester= str_replace_all(Trimester, "1st-Trimester", "First")) %>% 
+  mutate(Additional_Info =Outliers) %>% 
+  inset('Additional_Info_2', value=rep("NA", nrow(.))) %>% 
+  mutate(Fetal_Sex=str_replace_all(FetalSex, c('M'='Male', 'F'='Female'))) %>% 
+  inset('ArrayType', value=rep('EPIC',nrow(.))) %>% 
+  inset('Study', value=rep('ourStudy', nrow(.))) %>% 
+  dplyr::select(GEO_accession:Gestation, Trimester, Additional_Info:Study, Array, Slide)
+
+# bind our phenodata with GEO meta data
+save(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1, 
+     GSE75248.meta_v1, GSE93208.meta_v1, GSE115508.meta_v1, GSE120250.meta_v1, 
+     GSE100197.meta_v1, GSE98224.meta_v1, GSE106089.meta_v1, GSE71678.meta_v1, 
+     GSE113600.meta_v1, GSE66459.meta_v1, phenotypes_GA6to9_10samples_inGEOformat,
+     file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
+
+   }
+}
+
+```
+
+
+### use `OurOrYourDataPhenoFUN` to add phenodata of our data sets to `GEO_allMetaData_v1.RData`
+```{r}
+
+OurOrYourDataPhenoFUN(EPICdata="OurEPIC131")
 
 ```
 
 
 # 6. bind all the meta data together and read `GEOmeta` samplesheet. 
   Then read the data we wanted to Red-Green channel sets.
-```{r GEO_meta_all}
+```{r}
 
-load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1.RData")
+EPICdata <- "OurEPIC131"
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1.RData")
+load(file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
+
 
 GEOmeta <- rbind(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1, 
                  GSE75248.meta_v1, GSE93208.meta_v1, GSE115508.meta_v1, GSE120250.meta_v1, 
@@ -874,10 +948,14 @@ GEO_phenotypes_Filtered <- GEO_phenotypes_mGSE69502
 # saveRDS(GEO_phenotypes_Filtered, 
 #      file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes410_Filtered.rds")
 
+saveRDS(GEO_phenotypes_Filtered,
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes410_Filtered_add131.rds")
+
 ```
 
+
 ### read array datas
-```{r normalPlacenta}
+```{r, normalPlacenta}
   
 # read Red-Green set for 450K samples
 GEO_phenotypes_450k <- GEO_phenotypes_Filtered[GEO_phenotypes_Filtered$ArrayType=='450K',]
@@ -902,7 +980,9 @@ GEO_phenoData_450k_normalPlacenta <- pData(GEO_RGset_450k_normalPlacenta) #chain
 ## read our study
 GEO_phenotypes_EPIC_ourStudy <- GEO_phenotypes_Filtered[GEO_phenotypes_Filtered$ArrayType%in%'EPIC' & GEO_phenotypes_Filtered$Study%in%'ourStudy',]
 ## there are 10 normal placenta samples in total random selected from our study 
-GEO_RGset_EPIC_normalPlacenta_ourStudy <- read.metharray.exp(base = GEO_baseDir, targets = GEO_phenotypes_EPIC_ourStudy)
+GEO_RGset_EPIC_normalPlacenta_ourStudy <- read.metharray.exp(base = GEO_baseDir, 
+                                                             targets = GEO_phenotypes_EPIC_ourStudy, force = TRUE)
+
 GEO_phenoData_EPIC_normalPlacenta_ourStudy <- pData(GEO_RGset_EPIC_normalPlacenta_ourStudy)
 
 ## read other EPIC data, except our study
@@ -935,6 +1015,7 @@ save(GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta,
 we write 2 functions, one for getting RGset form 450k data, another for getting RGset from EPIC data.
 
 ```{r function2ReadFiles}
+
 GEOmeta$Sample %>% table()
 GEO_phenotypes_450k$Sample %>% table()
 GEO_phenotypes_EPIC$Sample %>% table()
@@ -979,8 +1060,8 @@ getRGsetEPIC <- function(Tissue){
 ```
 
 
-### other 8 tissue types:
-The other 8 tissue types except for placenta, including:
+### other 85tissue types:
+The other 85tissue types except for placenta, including:
 Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
 
 #### 1) Amnion
@@ -1073,7 +1154,7 @@ save(GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood,
 <!-- ``` -->
 
 
-#<!-- #### 7) Umbilical cord -->
+<!-- #### 7) Umbilical cord -->
 
 <!-- ```{r UmbilicalCord} -->
 
@@ -1087,7 +1168,7 @@ save(GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood,
 
 <!-- ``` -->
 
-#### 85 Umbilical cord blood
+#### 5) Umbilical cord blood
 
 ```{r CordBlood}
 

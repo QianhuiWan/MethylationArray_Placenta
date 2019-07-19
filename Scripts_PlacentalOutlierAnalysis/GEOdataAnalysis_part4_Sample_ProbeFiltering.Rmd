@@ -675,5 +675,3 @@ new_plotDF %>%
 
 * There seems to be batch effects between studies, so we need to remove batch effects before doing MDS and other downstream analysis. I will adjusted for batch use Combat or modified BMIQ function by Horvath.
 
-
-

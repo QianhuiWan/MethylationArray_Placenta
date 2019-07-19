@@ -1,0 +1,236 @@
+---
+title: "technical report (mainly 450k data, 15 GEO data sets used)"
+author: "Qianhui"
+date: "21/11/2018"
+output: html_document
+---
+
+This document is mainly for part4 of the GEO data set analysis, that is the quality control (check fetal sex & genotypes) of data sets from different tissue types.
+
+I used methods from `ewastools` package to identify samples with fetal sex misslabelled (check fetal sex), and also check the homogeneity of genotypes (using SNP probes to check genotype) for each sample. 
+
+The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
+
+^*^ MM: both allels were methylated (~100% methylation), often refer to AA or BB;   
+    MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
+    UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r package, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(data.table)
+library(limma)
+library(ewastools)
+library(ENmix)
+library(FactoMineR)
+library(doParallel)
+library(ggplot2)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEOphenoDataAll.RData")
+
+#GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta, GEO_RGset_EPIC_normalPlacenta, GEO_phenoData_EPIC_normalPlacenta
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
+
+#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion, GEO_RGset_EPIC_Amnion, GEO_phenoData_EPIC_Amnion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
+
+#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion,GEO_RGset_EPIC_Chorion, GEO_phenoData_EPIC_Chorion
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalChorion.RData")
+
+#GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua, GEO_RGset_EPIC_Decidua, GEO_phenoData_EPIC_Decidua, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDecidua.RData")
+
+#GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood, 
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
+
+#GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
+
+#GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
+
+#GEO_RGset_450k_UC, GEO_phenoData_450k_UC
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
+
+#GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
+load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
+
+```
+
+
+# 3. ewastools: check sex and contanmincation of sampels.
+
+## Functions to use ewastools to check fetal sex and genotypes.
+
+### 1) `CheckFetalSex` Function
+```{r checkFetalSex}
+# let argument RGsetChara to be a charactor
+
+CheckFetalSex <- function(RGsetChara){
+  registerDoParallel(cores=10)
+  # get the object from character
+  RGset <- get(RGsetChara)
+  # get meta data
+  phenoData <- pData(RGset)
+  
+  # get Genomic methylSets
+  ctrls <- getProbeInfo(RGset,type="Control")
+    ctrls <- ctrls[ctrls$Address %in% featureNames(RGset),]
+    ctrl_r <- getRed(RGset)[ctrls$Address,]
+    ctrl_g <- getGreen(RGset)[ctrls$Address,]
+    CG.controls <- ctrls$Type %in% c("NORM_C","NORM_G")
+    AT.controls <- ctrls$Type %in% c("NORM_A","NORM_T")
+    cg_grn <- ctrl_g[CG.controls,]
+    rownames(cg_grn) = ctrls$ExtendedType[CG.controls]
+    at_red <- ctrl_r[AT.controls,]
+    rownames(at_red) = ctrls$ExtendedType[AT.controls]
+  GMethSet <- RGset %>% preprocessRaw() %>% relic(at_red=at_red, cg_grn=cg_grn) %>% mapToGenome()
+  
+  # sex check
+  # phenoData to phenoData.dt
+  phenoData.dt <- phenoData %>% as.data.frame() %>% rownames_to_column() %>% setDT()
+  # add average total beta values for probes on X and Y chr
+  phenoData.dt[ ,c("X","Y") := check_sex(meth)]
+  
+  # predict fetal sex
+  phenoData.dt$predicted_sex = predict_sex(phenoData.dt$X,phenoData.dt$Y
+                           # which(phenoData.dt$Fetal_Sex%in%'Male'),
+                           # which(phenoData.dt$Fetal_Sex%in%'Female')
+                           )
+
+  phenoData.dt_v1 <- phenoData.dt %>%
+    mutate(predicted_sex = str_replace_all(predicted_sex, c("m"="Male","f" ="Female")))
+  
+  phenoData.dt_v2 <- setDT(phenoData.dt_v1)
+  
+  # plot the X/Y chr intensities
+  # it is better to put pch into 3 groups (red color marked the misslabelled samples)
+  plot(Y ~ X,data=phenoData.dt_v2,
+       pch=ifelse(phenoData.dt_v2$Fetal_Sex=="Female",1,
+           ifelse(phenoData.dt_v2$Fetal_Sex=="Male", 4,13)),
+       asp=1,xlab="Normalized X chromosome intensities",ylab="Normalized Y chromosome intensities")
+  points(Y ~ X,data=phenoData.dt_v2[Fetal_Sex !=predicted_sex],
+         pch=ifelse(phenoData.dt_v2[Fetal_Sex!=predicted_sex]$Fetal_Sex=="Female",1,
+             ifelse(phenoData.dt_v2[Fetal_Sex!=predicted_sex]$Fetal_Sex=="Male",4,13)),
+         col=2)
+  legend("topright",pch=c(1,4,13),legend=c("Female","Male", "NA"))
+  title(main = RGsetChara)
+  
+  # samples with fetal sex in meta data not same as predicted fetal sex
+  phenoData.dt_v2[Fetal_Sex !=predicted_sex] %>% as_tibble %>% 
+    dplyr::select(rowname:Study, X:predicted_sex) %>% print(n=Inf)
+  
+  # remove intermediat data
+  rm(meth)
+  
+  # return phenoData_withPredict, the df with predicted fetal sex
+  return(as_tibble(phenoData.dt_v2))
+}
+
+```
+
+
+### use `CheckFetalSex`
+```{r CheckFetalSexforAllTissues}
+
+TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
+                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
+                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
+                      "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
+                      "GEO_RGset_450k_trophoblast", 
+                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      )
+
+
+for(i in TissueRGsetNames){
+  # check fetal sex for each subset data sets
+  # and save the output df, the phenodata with predicted fetal sex
+  assign(paste0("GEO_phenoData", str_replace(i, "GEO_RGset",""), "_PreFS"),   
+         CheckFetalSex(RGsetChara = i))
+
+}
+
+# save all phenoData with predicted fetal sex infotmation
+save(GEO_phenoData_450k_normalPlacenta_PreFS, GEO_phenoData_EPIC_normalPlacenta_PreFS,
+     GEO_phenoData_450k_Amnion_PreFS, GEO_phenoData_EPIC_Amnion_PreFS,
+     GEO_phenoData_450k_Chorion_PreFS, GEO_phenoData_EPIC_Chorion_PreFS,
+     GEO_phenoData_450k_Decidua_PreFS, GEO_phenoData_EPIC_Decidua_PreFS,
+     GEO_phenoData_450k_MaternalBlood_PreFS, 
+     GEO_phenoData_450k_mesenchyme_PreFS,
+     GEO_phenoData_450k_trophoblast_PreFS, 
+     GEO_phenoData_450k_UC_PreFS, 
+     GEO_phenoData_450k_UCB_PreFS,
+  file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allPhenoData_addPredictedFetalSex.RData"
+)
+
+```
+
+
+
+### 2) `CheckGenotype` function
+
+```{r checkGenotype}
+
+CheckGenotype <- function(RGsetChara){
+  
+  # get the object from character
+  RGset <- get(RGsetChara)
+  # get meta data
+  phenoData <- pData(RGset)
+
+  # get detection P values
+  detP <- minfi::detectionP(RGset)
+
+  snps = meth$manifest[probe_type=='rs',index]
+  snps = beta[snps,]
+  genotypes = call_genotypes(snps,learn=TRUE)
+
+phenoDataNormal.dt_v2$log_odds = snp_outliers(genotypes)
+table(phenoDataNormal.dt_v2$log_odds > -4)
+
+phenoDataNormal.dt_v2[phenoDataNormal.dt_v2$log_odds > -4, ] %>% arrange(desc(log_odds))
+
+# assumed distribution of SNP-probe intensities. if probes are outoff distribution, there could be some technical variance (could to be used to indicate tissue contanmination)
+mxm_(genotypes)
+
+# plot genotype checking results
+par(mfrow=c(2,1))
+barplot(colMeans(detP), col=pal[6], las=2,
+        cex.names=0.8, ylim=c(0,0.01),
+        xlab = "",
+        ylab = "Mean detection p-values",
+        axisnames = FALSE)
+abline(h=0.01,col="red")
+
+barplot(phenoDataNormal.dt_v2$log_odds,
+        xlab = "placental tissue samples(n=53)",
+        ylab = "Average log odds")
+abline(h=-4,col="red")
+
+# which(phenoDataNormal$Sample.ID%in%62)
+# ggplot(tplot, aes(x=V54))+geom_density()
+
+rm(EpicRGset, meth, betaRaw, Mraw, Mraw_v1)
+
+}
+
+```
+
+
+
+
+
