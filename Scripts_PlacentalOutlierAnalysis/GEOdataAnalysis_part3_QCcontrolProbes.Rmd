@@ -130,7 +130,7 @@ ControlPCA <- function(RGsetChara, group){
   # values to return
   ControlBMList <- list(ControlB=beta_ctrls, ControlM=M_ctrls_v1)
   return(ControlBMList)
-  # saveRDS(PCA_M_ctrl, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_M_ctrl.rds")
+  saveRDS(PCA_M_ctrl, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_M_ctrl.rds")
 }
 
 ```
@@ -230,20 +230,20 @@ JoinAndPlotAllControl <-
   
   #plotMDS plots
   ## phenodata for these samples
-  GEO_phenotypes_551 <- GEO_phenotypes[match(colnames(Join.df_v2),
+  GEO_phenotypes_408 <- GEO_phenotypes[match(colnames(Join.df_v2),
                                                  GEO_phenotypes$Sample_name),]
   ## check names all in same order or not
-  table(colnames(Join.df_v2)==GEO_phenotypes_551$Sample_name) %>% print()
+  table(colnames(Join.df_v2)==GEO_phenotypes_408$Sample_name) %>% print()
 
   ## plot MDS plot
   par(mfrow=c(1,1))
-  MDS_control <- plotMDS(Join.df_v2, top=nrow(Join.df_v2), labels= GEO_phenotypes_551$Sample, gene.selection="common") 
+  MDS_control <- plotMDS(Join.df_v2, top=nrow(Join.df_v2), labels= GEO_phenotypes_408$Sample, gene.selection="common") 
 
   # plot PCA
    PCA_control <- FactoMineR::PCA(base::t(Join.df_v2))
   
   # return Join.df_v2, GEO_phenotypes_norm552 and MDS_norm552
-  output_List <- list(JoinAllControl=Join.df_v2, phenoDataAll=GEO_phenotypes_551, 
+  output_List <- list(JoinAllControl=Join.df_v2, phenoDataAll=GEO_phenotypes_408, 
                       MDS_control=MDS_control, PCA_control=PCA_control)
   return(output_List)
 }
@@ -254,16 +254,16 @@ JoinAndPlotAllControl <-
 ## use FUN `JoinAndPlotAllControl`
 ```{r}
 
-Control551_Beta <- JoinAndPlotAllControl(ControlBMvalInfo =  ControlBMvalInfo, 
+Control408_Beta <- JoinAndPlotAllControl(ControlBMvalInfo =  ControlBMvalInfo, 
                                          value = "Beta", 
                                          GEO_phenotypes = GEO_phenotypes)
 
-Control551_M <- JoinAndPlotAllControl(ControlBMvalInfo =  ControlBMvalInfo, 
+Control408_M <- JoinAndPlotAllControl(ControlBMvalInfo =  ControlBMvalInfo, 
                                       value = "M", 
                                       GEO_phenotypes = GEO_phenotypes)
 
-save(Control551_Beta, Control551_M,
-     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Controls_BM_all551.RData")
+save(Control408_Beta, Control408_M,
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Controls_BM_all408.RData")
 ```
 
 
@@ -271,13 +271,13 @@ save(Control551_Beta, Control551_M,
 
 ```{r}
 
-new_plotDF <- data.frame(x=Control551_M$PCA_control$ind$coord[,1], 
-    y=Control551_M$PCA_control$ind$coord[,2],
-    GA = Control551_M$phenoDataAll$Gestation,
-    FetalSex= Control551_M$phenoDataAll$Fetal_Sex,
-    Tissue= Control551_M$phenoDataAll$Sample,
-    Trimester=Control551_M$phenoDataAll$Trimester,
-    Study=Control551_M$phenoDataAll$Study
+new_plotDF <- data.frame(x=Control408_M$PCA_control$ind$coord[,1], 
+    y=Control408_M$PCA_control$ind$coord[,2],
+    GA = Control408_M$phenoDataAll$Gestation,
+    FetalSex= Control408_M$phenoDataAll$Fetal_Sex,
+    Tissue= Control408_M$phenoDataAll$Sample,
+    Trimester=Control408_M$phenoDataAll$Trimester,
+    Study=Control408_M$phenoDataAll$Study
 )
 colnames(new_plotDF) <- c("x", "y", "Gestational age", "FetalSex", "Tissue", "Trimester", "Study")
 
@@ -304,7 +304,11 @@ PCAplotOtherControlTissue <- new_plotDF %>%
 # axis.text.x = element_text(angle=90, hjust=1)) 
   
 PCAplotOtherControlTissue
+
+saveRDS(PCAplotOtherControlTissue, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCAplotAllControlTissue.rds")
+
 ```
+
 
 
 
