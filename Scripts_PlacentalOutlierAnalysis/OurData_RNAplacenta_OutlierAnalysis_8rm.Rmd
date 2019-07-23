@@ -1,0 +1,827 @@
+---
+title: "Placenta gene expression"
+author: "Jimmy Breen"
+date: "01/02/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load, include=FALSE}
+library(readr)
+library(magrittr)
+library(dplyr)
+library(stringr)
+library(edgeR)
+library(limma)
+library(RColorBrewer)
+library(pheatmap)
+library(biomaRt)
+library(ggplot2)
+library(reshape2)
+library(pander)
+library(DOSE)
+library(clusterProfiler)
+library(VennDiagram)
+library(topGO)
+library(clusterProfiler)
+library(gridExtra)
+
+```
+
+
+## Project Overview
+
+NIH Placental gene expression
+
+## Sample Processing
+
+The pipeline for RNAseq involves the following tasks:
+
+1. Quality Control
+  - Raw FASTQ data quality control using FastQC
+2. Adapter and Quality Trimming
+  - Trim raw data for adapters and low-quality sequences using AdapterRemoval
+3. Genome alignment
+  - Align trimmed RNAseq reads to hg19 using the RNA mapping program STAR
+4. Merge alignments from the two RNAseq runs and clean
+  - Sort BAMs and deduplicate using picard MarkDuplicates 
+5. Quantification
+  - Count reads that overlap gene regions using featureCounts
+6. Isoform quantification
+  - Use raw data to define iosform expression using Salmon. This process is also called Pseudo-alignment RNAseq quantification
+
+
+__Complete Merged Dataset:__
+
+
+
+## Differential Gene Expression using EdgeR
+
+
+```{r results='hide', warning=FALSE}
+
+#All samples
+all <- read_delim("~/RNAseq_NIH/OriginFiles/NIH_terminations_firstSecond.counts.tsv", delim = "\t", skip = 1) %>%
+  as.data.frame()
+colnames(all)[-1] <- str_replace_all(colnames(all)[-1], "PAC", "PAC0")
+
+## GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+# phenodata of 96 placenta samples
+phenoDataPlacenta <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/phenoDataPlacenta.rds")
+
+# get the PAC numbers of these 10 samples
+TenSamplesFromOurStudy <- GEO_phenotypes[GEO_phenotypes$Study%in%"ourStudy",]
+TenSamplesFromOurStudyPAC <- phenoDataPlacenta[rownames(phenoDataPlacenta)%in%TenSamplesFromOurStudy$Sample_name,]$Sample.ID2
+
+# The add geneID as the column name and drop that column
+# Drop PAC025 as well (explaination later)
+# Drop 8 outliers
+# Outliers <- c("PAC006", "PAC008", "PAC024", "PAC035", "PAC036", "PAC039", "PAC041", "PAC045")
+
+rownames(all) <- all$Geneid
+all <- all[, -which(names(all) %in% c("Geneid", "PAC0025"))]
+all <- all[, colnames(all)%in%TenSamplesFromOurStudyPAC]
+
+```
+
+
+Now that the count matrices have been setup, we need to define the groups for each. 1,2 and 3 all have the same group setups, but the last includes all possible samples, so its three-times as large.
+
+```{r edgeRObject}
+
+groupData <- read_delim("~/RNAseq_NIH/OriginFiles/sampleGroups.txt", delim = "\t")
+
+# remove PAC025
+groupData$SampleID2 <- str_replace_all(groupData$SampleID, "PAC", "PAC0")
+groupData <- groupData[groupData$SampleID2 %in% colnames(all),]
+
+# remove 8 outliers
+# Outliers <- c("PAC006", "PAC008", "PAC024", "PAC035", "PAC036", "PAC039", "PAC041", "PAC045")
+Outliers <- c("PAC0006", "PAC0008", "PAC0035", "PAC0036", "PAC0039")
+
+groupData$outlier <- ifelse(groupData$SampleID2 %in% Outliers, "outlier", "pure")
+
+groupData_outleirs <- groupData %>% mutate(Group=str_replace_all(Group, c("1"="LOE", "2"="NOE")))
+
+```
+
+
+```{r}
+
+group <- as.factor(groupData_outleirs$outlier)
+
+#age <- as.factor(groupData$GestAge)
+
+cds <- DGEList(all, group = group)
+cds$samples$group <- group
+
+```
+
+
+How many low count genes do we have?
+
+```{r}
+# table(rowSums(cds$counts==0)==87)
+table(rowSums(cds$counts==0)==10)
+
+```
+
+
+8151 genes are zero across all samples. Lets filter those out and get rid of the other low count genes
+
+```{r}
+cpm <- cpm(cds) 
+lcpm <- cpm(cds, log=TRUE)
+
+# we'll use 24 samples as the count off for having a cpm > 1. Thats 1/4 of the samples
+keep.exprs <- rowSums(cpm>2)>=21
+cds <- cds[keep.exprs,, keep.lib.sizes=FALSE]
+dim(cds)
+
+```
+
+
+
+```{r}
+
+library(RColorBrewer)
+nsamples <- ncol(cds)
+col <- brewer.pal(nsamples, "Paired")
+par(mfrow=c(1,2))
+plot(density(lcpm[,1]), col=col[1], lwd=2, ylim=c(0,0.21), las=2,
+      main="", xlab="")
+title(main="A. Raw data", xlab="Log-cpm")
+abline(v=0, lty=3)
+for (i in 2:nsamples){
+ den <- density(lcpm[,i])
+ lines(den$x, den$y, col=col[i], lwd=2)
+}
+#legend("topright", sampleID, text.col=col, bty="n")
+
+lcpm <- cpm(cds, log=TRUE)
+plot(density(lcpm[,1]), col=col[1], lwd=2, ylim=c(0,0.21), las=2,
+      main="", xlab="")
+title(main="B. Filtered data", xlab="Log-cpm")
+abline(v=0, lty=3)
+for (i in 2:nsamples){
+   den <- density(lcpm[,i])
+   lines(den$x, den$y, col=col[i], lwd=2)
+}
+#legend("topright", sampleID, text.col=col, bty="n")
+```
+
+
+```{r normalisedCounts}
+cds <- calcNormFactors(cds, method = "TMM")
+
+cds$samples$norm.factors
+```
+
+
+```{r}
+x2 <- cds
+x2$samples$norm.factors <- 1
+x2$counts[,1] <- ceiling(x2$counts[,1]*0.05)
+x2$counts[,2] <- x2$counts[,2]*5
+
+par(mfrow=c(1,2))
+lcpm <- cpm(x2, log=TRUE)
+boxplot(lcpm, las=2, col=col, main="")
+title(main="A. Example: Unnormalised data",ylab="Log-cpm")
+x2 <- calcNormFactors(x2)
+x2$samples$norm.factors
+lcpm <- cpm(x2, log=TRUE)
+boxplot(lcpm, las=2, col=col, main="")
+title(main="B. Example: Normalised data",ylab="Log-cpm")
+
+```
+
+Cluster the data to see any issues. A couple of samples look off
+
+```{r}
+lcpm <- cpm(cds, log=TRUE)
+par(mfrow=c(1,2))
+col.group <- group
+levels(col.group) <- brewer.pal(nlevels(col.group), "Set1")
+col.group <- as.character(col.group)
+col.lane <- groupData_outleirs$GestAge
+levels(col.lane) <- brewer.pal(nlevels(col.lane), "Set2")
+col.lane <- as.character(col.lane)
+col.lane2 <- as.character(groupData_outleirs$SampleID)
+
+plotMDS(lcpm, top = nrow(lcpm), gene.selection = 'common', labels=col.lane, col=col.group)
+title(main="A. Sample groups")
+plotMDS(lcpm, top = nrow(lcpm), gene.selection = 'common', labels=col.lane2, col=col.group)
+title(main="B. Sample IDs")
+
+```
+
+# do PCA for all genes
+```{r}
+library(FactoMineR)
+library(ggpubr)
+
+PCAres <- PCA(t(lcpm))
+
+# use ggplot to plot PCA plot
+PCAcoord.df <- tibble(x= PCAres$ind$coord[,1],
+                      y= PCAres$ind$coord[,2],
+                      Outlier= groupData_outleirs$outlier)
+
+theme_set(theme_pubr())
+PCA10samples <- ggplot(PCAcoord.df, aes(x=x, y=y, color=Outlier))+
+  geom_point(size=3)+
+  labs(x= "PC1 (52.78%)", y= "PC2 (14.55%)", color="Placenta")
+
+tiff(file = "~/RNAseq_NIH/Figures/PCAplotTop50genesOutlier.tiff", 
+     width = 10, height = 8, units = "cm", res = 300)
+PCA10samples
+dev.off()
+
+# get the contributions of each gene
+PC1contrribute <- PCAres$var$contrib %>% as.data.frame() %>% tibble::rownames_to_column(var="ensembl_id") %>% arrange(desc(Dim.1))
+
+# get gene id
+
+mart <- useMart(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+mapping <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", 
+                                "entrezgene_id", "external_gene_name", "gene_biotype"),
+                 mart = mart)
+
+PC1top100_genes <- inner_join(PC1contrribute, mapping, by = c("ensembl_id" = "ensembl_gene_id")) %>%
+  dplyr::select(GeneName = external_gene_name, entrezgene_id, ensembl_id, 
+                gene_biotype, Dim.1) %>%
+  dplyr::arrange(desc(Dim.1))
+ # %>%dplyr::slice(1:200)
+
+lcpm_v1 <- lcpm %>% as.data.frame() %>% tibble::rownames_to_column(var= "ensembl_id")
+  
+PC1top100_genes_v1 <- left_join(PC1top100_genes, lcpm_v1, by="ensembl_id") %>%
+  dplyr::select(GeneName, ensembl_id, Dim.1, PAC0006:PAC0042) %>% 
+  melt(id.vars=c("GeneName", "ensembl_id", "Dim.1"), variable.name="SampleID2") %>% 
+  left_join(groupData, by="SampleID2")
+
+
+# decidua specific genes PRL and IGFBP1, endometrium gene MUC1
+PC1top100_genes_v2 <- PC1top100_genes_v1[str_detect(PC1top100_genes_v1$GeneName, pattern = "^PRL$|^IGFBP1$|^MUC1$"),] #^FOXO1$|^HOXA10$|^HAND2$||^STAT3$|^TF$|^LIF$
+P1_dec <- ggplot(PC1top100_genes_v2, aes(x=outlier, y=value))+
+  geom_boxplot()+facet_wrap(~GeneName)+
+  labs(title = "Decidua genes", x="Placenta samples", y="Gene expression")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# placenta specific genes
+PC1top100_genes_v3 <- PC1top100_genes_v1[str_detect(PC1top100_genes_v1$GeneName, pattern = "^PEG10$|^PLAC1$|^ERVW-1$|^PSG1$"),]
+
+P2_pla <- ggplot(PC1top100_genes_v3, aes(x=outlier, y=value))+
+  geom_boxplot()+facet_wrap(~GeneName)+
+  labs(title = "Placenta-specific genes", x="Placenta samples", y="Gene expression")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# amnion genes
+PC1top100_genes_v4 <- PC1top100_genes_v1[str_detect(PC1top100_genes_v1$GeneName, pattern = "^ID2$|^MUC1$|^CD99$|^PPL$"),]
+
+ggplot(PC1top100_genes_v4, aes(x=outlier, y=value))+geom_boxplot()+facet_wrap(~GeneName)
+
+# chorion genes, but SERPINE2 is more expressed in placenta
+PC1top100_genes_v5 <- PC1top100_genes_v1[str_detect(PC1top100_genes_v1$GeneName, pattern = "^TIMP3$|^IGFBP7$"),] #^SERPINE2$
+
+ggplot(PC1top100_genes_v5, aes(x=outlier, y=value))+geom_boxplot()+facet_wrap(~GeneName)
+
+
+# save files
+top100Genes <- PC1top100_genes$GeneName
+write.table(top100Genes, file = "~/RNAseq_NIH/RDSfiles/top100genesOutliers.txt", 
+            row.names = FALSE, quote = FALSE, col.names = FALSE, sep = " ", eol = " ")
+
+```
+
+Looks like PAC025 hasnt sequenced well and should be removed (already done above)
+
+we also need to remove the 8 outliers form 6-9 weeks' gestation, they were already removed at the start.
+
+
+# heatmap for top 50 genes of PC1 (5outliers+5 pure samples)
+```{r}
+
+PC1top100_genes_v2 <- left_join(PC1top100_genes[1:50,], lcpm_v1, by="ensembl_id") %>%
+  dplyr::select(GeneName, ensembl_id, Dim.1, PAC0006:PAC0042)
+
+# prepare matrix for heatmap
+PC1top100_genes_matix <- PC1top100_genes_v2 %>% 
+  dplyr::select(GeneName, PAC0006:PAC0042) %>% 
+  tibble::column_to_rownames(var = "GeneName") %>% 
+  as.matrix()
+
+## draw heatmap with `pheatmap` function:
+## draw heatmap with gene expression matirx
+paletteLength <- 25
+myBreaks <- c(seq(min(PC1top100_genes_matix), 0, length.out=ceiling(paletteLength/2) + 1),
+              seq(max(PC1top100_genes_matix)/paletteLength, max(PC1top100_genes_matix), length.out=floor(paletteLength/2)))
+
+heat <- PC1top100_genes_matix %>%
+  pheatmap(
+    cluster_cols = T,
+    cluster_rows = T,
+    breaks = myBreaks,
+    color=colorRampPalette(c("navy", "white", "firebrick3"))(paletteLength),
+    fontsize = 8,
+    fontsize_number = 0.8,
+    #gaps_col = 2,
+    # scale = "row",
+    # cutree_rows = 3,
+    #cutree_cols = 3,
+    # annotation_col = GA,
+    # annotation_row = CpGCHHbetterV1,
+    show_rownames = T,
+    show_colnames = T
+    # annotation_colors = groupColors,
+    # annotation_names_row=F,
+    # annotation_names_col = F
+    
+  )
+
+
+# pdf(file = "/home/qianhui/DNAme/figures-draftGA-analysis/DMP_heatmap_5rm_v1.pdf", width = 13, height = 7)
+# 
+# grid.arrange(grobs = list(heat$gtable), nrow=1)
+# dev.off()
+
+tiff(file = "~/RNAseq_NIH/Figures/heatmapTop50genesOutlierPC1.tiff", 
+     width = 15, height = 15, units = "cm", res = 300)
+
+grid.arrange(grobs = list(heat$gtable), nrow=1)
+dev.off()
+
+saveRDS(heat,  file = "~/RNAseq_NIH/RDSfiles/heatmapTop50genesOutlierPC1.rds" )
+
+# ggarrange P1_dec and P2_pla and save plot
+tiff(file = "~/RNAseq_NIH/Figures/supFigureForTechReport_Placenta.tiff", 
+     width = 25, height = 18, units = "cm", res = 300)
+theme_set(theme_pubr())
+col1 <- ggarrange(PCA10samples, P1_dec, P2_pla, ncol = 1, nrow = 3, labels = c("A", "C", "D"))
+ggarrange(col1, grid.arrange(grobs = list(heat$gtable)), ncol = 2, widths = c(1,1.5), labels = c("", "B"))
+dev.off()
+
+```
+
+
+
+# Testing for differential expression
+
+```{r }
+
+design <- model.matrix(~ 0+ group)
+
+contr.matrix <- makeContrasts(group2vsgroup1 = groupNOE-groupLOE,
+    levels = colnames(design))
+contr.matrix
+
+design <- model.matrix(~ group)
+
+design %>% head
+
+```
+
+
+
+```{r glm_fit}
+v <- voom(cds, design, plot=TRUE)
+```
+
+Thats a lot of genes, so it might be worth looking at a lower FDR cutoff. However, ist always good to have a consistent FDR cutoff for all of the tests. 
+
+How many genes were up and down regulated?
+
+```{r}
+vfit <- lmFit(v, design)
+# vfit <- contrasts.fit(vfit, contrasts=contr.matrix)
+efit <- eBayes(vfit, trend = TRUE)
+plotSA(efit)
+```
+
+
+```{r}
+tfit <- treat(vfit, lfc=1)
+dt <- decideTests(tfit)
+summary(dt)
+
+oxygenChangeTable <- topTreat(tfit, coef=2, n=Inf)
+```
+
+Lets check out what the data looks like
+
+```{r}
+plotMD(tfit, column=2, status=dt[,2], main=colnames(tfit)[2],
+       xlim=c(-8,13))
+```
+
+
+# Annotation
+
+Now lets change those uninformative ensembl gene ids to something a bit more biologically informative. To do this, we can use the fancy biomart packages as part of Bioconductor, without having to download files outside of R. 
+
+```{r MGIsymbol}
+
+de.genes <- tibble::rownames_to_column(oxygenChangeTable, var = "ensembl_id")
+
+mart <- useMart(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+
+mapping <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol", 
+                                "entrezgene", "external_gene_name", "gene_biotype"),
+                 mart = mart)
+
+DE_genes <- inner_join(de.genes, mapping, by = c("ensembl_id" = "ensembl_gene_id")) %>%
+  dplyr::select(GeneName = external_gene_name, entrezgene, ensembl_id, 
+                gene_biotype, logFC, AveExpr, FDR = adj.P.Val) %>%
+  dplyr::arrange(FDR)
+
+# write.table(Results, file = "SpermProject_genesDE.csv", sep = ",")
+
+# saveRDS(DE_genes, file = "~/RNAseq_NIH/RDSfiles/DE_genes_LOENOE.rds")
+
+```
+
+Now lets look at our top 20 genes
+
+```{r eg}
+DE_genes %>%
+  head(n=50) %>%
+  pander()
+```
+
+
+
+## Volcano plot:
+
+Lets make a volcano plot for just one of the conditions. 
+
+```{r volcanoPlot}
+
+DE_genes %>%
+   dplyr::filter(FDR < 0.1) %>%
+   dplyr::mutate(gene_biotype = gsub("(miRNA|snoRNA|snRNA)",
+                            "smallRNA", gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(IG_V_gene|misc_RNA|nonsense_mediated_decay|processed_pseudogene|processed_transcript|pseudogene|retained_intron|ribozyme|rRNA|sense_intronic|TEC|TR_C_gene|TR_V_gene|translated_processed_pseudogene|unprocessed_pseudogene)",
+                                     "other", 
+                                     gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(transcribed_other|transcribed_unitary_other)", 
+                                     "other", 
+                                     gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(lincRNA|bidirectional_promoter_lncRNA)",
+                                     "lncRNA", 
+                                     gene_biotype)) %>%
+   dplyr::select(gene_biotype, logFC, FDR) %>%
+   ggplot(aes(x= logFC, y= -log10(FDR), colour= gene_biotype)) +
+   geom_point(alpha=0.4, size=2) +
+   xlab("logFC") +
+   ylab("-log10 False Discovery Rate (FDR)") +
+   theme_bw()
+
+DE_genes %>%
+   dplyr::filter(FDR < 0.1, abs(logFC) > 2) %>%
+   dplyr::mutate(gene_biotype = gsub("(miRNA|snoRNA|snRNA)",
+                            "smallRNA", gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(IG_V_gene|misc_RNA|nonsense_mediated_decay|processed_pseudogene|processed_transcript|pseudogene|retained_intron|ribozyme|rRNA|sense_intronic|TEC|TR_C_gene|TR_V_gene|translated_processed_pseudogene|unprocessed_pseudogene)",
+                                     "other", 
+                                     gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(transcribed_other|transcribed_unitary_other)", 
+                                     "other", 
+                                     gene_biotype)) %>%
+   dplyr::mutate(gene_biotype = gsub("(lincRNA|bidirectional_promoter_lncRNA)",
+                                     "lncRNA", 
+                                     gene_biotype)) %>%
+   dplyr::select(gene_biotype, logFC, FDR) %>%
+   ggplot(aes(x= logFC, y= -log10(FDR), colour= gene_biotype)) +
+   geom_point(alpha=0.4, size=2) +
+   xlab("logFC") +
+   ylab("Negative log10 False Discovery Rate (FDR)") +
+   theme_bw()
+
+```
+
+
+## boxplots; DMR overlapped genes
+
+Draw boxplots for genes overlapped with DMRs
+
+```{r}
+library(ggpubr)
+# library(ggsignif)
+# placenta_meanBdmrTopGR_LOENOE <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_DMRcate_GA_5Probe_TopGR_5rmLOENOE.rds")
+placenta_meanBdmrTopGR_LOENOE <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_DMRcate_GA_5Probe_TopGR_5rmLOENOE_v2.rds")
+                                    
+placenta_DMR_LOENOEgenes <- bitr(placenta_meanBdmrTopGR_LOENOE$name, fromType="SYMBOL", toType="ENSEMBL", OrgDb="org.Hs.eg.db") #"ENTREZID"
+colnames(placenta_DMR_LOENOEgenes)[2] <- "ensembl_id"
+
+# all counts
+lcpm_v1 <- lcpm %>% as.data.frame() %>% tibble::rownames_to_column(var= "ensembl_id" )
+# group data
+# groupData
+
+# significance annotation
+# annotation_df <- data.frame(
+#                             start=DEs$SYMBOL, 
+#                             end=DEs$SYMBOL,
+#                             y=c(9,9,9,9),
+#                             label=c("***", "***", "**", "*"))
+
+# DE_genes
+DE_genes_v1 <- DE_genes %>% 
+  dplyr::filter(ensembl_id%in%placenta_DMR_LOENOEgenes$ensembl_id) %>% 
+  dplyr::left_join(placenta_DMR_LOENOEgenes, by="ensembl_id") %>% 
+  dplyr::left_join(lcpm_v1, by="ensembl_id") %>% 
+  dplyr::select(SYMBOL:PAC140) %>% 
+  reshape2::melt() %>% 
+  `colnames<-`(c("Genes", "SampleID", "Gene expression")) %>% 
+  dplyr::left_join(groupData_8rm, by="SampleID")
+
+theme_set(theme_pubr())
+genes_DMR_LOENOEplot <-  
+  DE_genes_v1 %>% 
+  ggplot(aes(x=Genes, y=`Gene expression`, colour=Group))+
+  geom_boxplot()+
+  # geom_signif(data=annotation_df,
+  #             aes(xmin=start, xmax =end, annotations=label, y_position =y),
+  #             textsize = 3, vjust = -0.2,
+  #             manual=TRUE) +
+  # scale_color_brewer(palette = "Dark2", labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  scale_color_manual(values=brewer.pal(8, "Dark2")[3:4], labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  labs(x="Genes", y="Gene expression", colour="Groups")+
+  # theme(text = element_text(size=9),
+  #       legend.title=element_text(size=9), legend.position="right",
+  #       legend.text=element_text(size=9),
+  #       axis.text.x = element_text(angle = 45, hjust = 1, colour = "black"))
+  theme(text = element_text(size=20),
+        legend.title=element_text(size=20), legend.position="right",
+        legend.text=element_text(size=20),
+        axis.text.x = element_text(angle = 45, hjust = 1, colour = "black"))
+
+tiff(file = "/home/qianhui/RNAseq_NIH/Figures/genes_DMR_LOENOEplot_v2.tiff",
+     width = 35, height = 12, units = "cm", res = 300)
+genes_DMR_LOENOEplot
+dev.off()
+
+
+DE_genesAll <- DE_genes %>% 
+  dplyr::filter(ensembl_id%in%placenta_DMR_LOENOEgenes$ensembl_id) %>% 
+  dplyr::left_join(placenta_DMR_LOENOEgenes, by="ensembl_id") %>% 
+  dplyr::left_join(lcpm_v1, by="ensembl_id")
+
+# 4 DEs overlapped with DMRs
+DEs <- DE_genesAll[DE_genesAll[DE_genesAll$SYMBOL%in%DE_genes_v1$Genes,]$FDR<0.05,]
+
+saveRDS(genes_DMR_LOENOEplot, file = "/home/qianhui/DNAme/Process_placenta_workflow/genes_DMR_oxygen_plot.rds")
+
+```
+
+
+# DNA methylation of genes
+
+## GRange of top 40 differentcially expressed genes
+```{r}
+library(tibble)
+library(ggpubr)
+library(tidyverse)
+library(minfi)
+library(bumphunter)
+library(GenomicFeatures)
+library(plyranges)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(org.Hs.eg.db)
+# genes
+# genes1 <- annotateTranscripts(TxDb.Hsapiens.UCSC.hg19.knownGene, "org.Hs.eg.db")
+genes2 <- genes(TxDb.Hsapiens.UCSC.hg19.knownGene)
+Pro <- promoters(genes(TxDb.Hsapiens.UCSC.hg19.knownGene))
+
+# # change to ensemble id
+# genes2_ensembl_id <- bitr(genes2$gene_id, fromType="ENTREZID", toType="ENSEMBL", OrgDb="org.Hs.eg.db") #"ENTREZID"
+# colnames(genes2_ensembl_id) <- c("gene_id", "ensembl_id")
+
+# # put ensembl_id into gene GRange
+# table(genes2$gene_id%in%genes2_ensembl_id$gene_id)
+# mcols(genes2) <- mcols(genes2) %>%
+#                  as.data.frame() %>%
+#                  left_join(genes2_ensembl_id, by="gene_id") %>% DataFrame()
+
+DEgenesTop20_up <- DE_genes[DE_genes$FDR<0.05 & DE_genes$logFC>2, ] %>% head(20)
+DEgenesTop20_down <- DE_genes[DE_genes$FDR<0.05 & DE_genes$logFC< -2, ] %>% head(20)
+
+DEgenesTop40 <- rbind(DEgenesTop20_up, DEgenesTop20_down)
+
+DEgenesTop40_GR <- genes2[genes2$gene_id%in%DEgenesTop40$entrezgene,]
+mcols(DEgenesTop40_GR) <- cbind(mcols(DEgenesTop40_GR), 
+                                DEgenesTop40[match(DEgenesTop40_GR$gene_id, DEgenesTop40$entrezgene),])
+
+
+DEgenesTop40_proGR <- Pro[Pro$gene_id%in%DEgenesTop40$entrezgene,]
+mcols(DEgenesTop40_proGR) <- cbind(mcols(DEgenesTop40_proGR), 
+                                   DEgenesTop40[match(DEgenesTop40_proGR$gene_id, DEgenesTop40$entrezgene),])
+
+```
+
+## Beta values (methylation percentage) and GRange of beta values
+```{r}
+
+Placenta_betaNorm <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_betaNormCal91.rds")
+
+phenoDataPlacenta91 <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/phenoDataPlacenta91.rds")
+
+# Make GRatio sets
+GRatioSetPlacenta_BNorm_v1 <- Placenta_betaNorm %>% 
+  makeGenomicRatioSetFromMatrix(rownames=rownames(Placenta_betaNorm), 
+                                pData=phenoDataPlacenta91, 
+                                array = "IlluminaHumanMethylationEPIC", 
+                                annotation = "ilm10b4.hg19", mergeManifest = TRUE, what="Beta") 
+
+GRangeProbe600k <- GRatioSetPlacenta_BNorm_v1@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe600k
+## get GRange of all probes: 600k
+### add values to GRange object metadata columns
+matchWithGRprobe <- base::match(GRangeProbe600k$Name, rownames(Placenta_betaNorm))
+values(GRangeProbe600k) <- cbind(values(GRangeProbe600k), DataFrame(Placenta_betaNorm[matchWithGRprobe,], check.names = F)) 
+### add seqinfo
+bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
+bs_hg19
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe600k) %>% seqnames()
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe600k) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                    seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                    isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                    genome = genome(seqinfo(bs_hg19))[1:24])
+
+```
+
+## match probes to top 40 Genes and promoter of these genes
+### top genes overlapped probes
+```{r}
+# overlapped probe names
+Names <- find_overlaps(DEgenesTop40_GR, GRangeProbe600k)$Name
+
+# make data frame
+Top40Genes_Probes_df <- tibble(
+  # DMRindex= rep()
+  Name=Names,
+  geneNames=rep(DEgenesTop40_GR$GeneName, 
+                as.numeric(count_overlaps(DEgenesTop40_GR, GRangeProbe600k))),
+  logFC=rep(DEgenesTop40_GR$logFC, 
+                as.numeric(count_overlaps(DEgenesTop40_GR, GRangeProbe600k)))) %>% 
+  inset("Change", value=ifelse(.$logFC>0, "Up", "Down")) %>% 
+  left_join(as.data.frame(mcols(GRangeProbe600k)), by="Name") %>% 
+  dplyr::select(1,2,4, 7:97) %>% 
+  reshape2::melt() %>% 
+  `colnames<-`(c("ProbeNames", "Genes", "Change","Samples", "Beta")) %>% 
+  dplyr::mutate(Samples, Samples=str_replace_all(Samples, "X", "")) %>% 
+  left_join(., 
+            rownames_to_column(as.data.frame(phenoDataPlacenta91[, c("Trimester", "Oxygen")]), var="Samples"), 
+            by="Samples")
+
+Top40Genes_Probes_df %>% head()
+
+# draw boxplot
+## upregulated genes
+Top40Genes_ProbesPlotUP <-  
+  Top40Genes_Probes_df[Top40Genes_Probes_df$Change=="Up",] %>% 
+  ggplot(aes(x=Genes, y=Beta,colour=Oxygen))+
+  geom_boxplot()+
+  scale_color_brewer(palette = "Dark2", labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  labs(x="Up regulated genes", y="Beta values", colour="Groups")+ #Genes
+  # facet_wrap(~Change)+
+  # theme(text = element_text(size=9),
+  #       legend.title=element_text(size=9), legend.position="right",
+  #       legend.text=element_text(size=9),
+  #       axis.text.x = element_text(angle = 45, hjust = 1, colour = "black"))
+  theme(text = element_text(size=20),
+        legend.title=element_text(size=20), legend.position="right",
+        legend.text=element_text(size=20),
+        axis.text.x = element_text(size=12, angle = 45, hjust = 1, colour = "black"))
+
+## down regulated genes
+Top40Genes_ProbesPlotDown <-  
+  Top40Genes_Probes_df[Top40Genes_Probes_df$Change=="Down",] %>% 
+  ggplot(aes(x=Genes, y=Beta,colour=Oxygen))+
+  geom_boxplot()+
+  scale_color_brewer(palette = "Dark2", labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  labs(x="Down regulated genes", y="Beta values", colour="Groups")+ #Genes
+  theme(text = element_text(size=20),
+        legend.title=element_text(size=20), legend.position="right",
+        legend.text=element_text(size=20),
+        axis.text.x = element_text(size=12, angle = 45, hjust = 1, colour = "black"))
+
+tiff(filename = 
+     "/home/qianhui/RNAseq_NIH/Figures/boxplot_GenesTop40loeNoe.tiff",
+     width = 35, height = 12, units = "cm", res = 300)
+
+theme_set(theme_pubr())
+ggarrange(Top40Genes_ProbesPlotUP, Top40Genes_ProbesPlotDown, 
+          # labels = c("A", "B"), 
+          # label.x = c(0, -0.05),
+          # widths = c(1.5,1),
+          font.label = list(size = 36, face = "bold", color ="black"),
+          ncol = 2, 
+          common.legend=TRUE
+          # legend="right"
+          )
+dev.off()
+
+save(Top40Genes_ProbesPlotUP, Top40Genes_ProbesPlotDown, 
+     file = "/home/qianhui/RNAseq_NIH/Figures/Top40Genes_ProbesPlot.rds")
+
+```
+
+
+## top gene promoter overlapped probes
+```{r}
+
+# overlapped probe names
+Names <- find_overlaps(DEgenesTop40_proGR, GRangeProbe600k)$Name
+
+# make data frame
+Top40GenePro_Probes_df <- tibble(
+  # DMRindex= rep()
+  Name=Names,
+  geneNames=rep(DEgenesTop40_proGR$GeneName, 
+                as.numeric(count_overlaps(DEgenesTop40_proGR, GRangeProbe600k))),
+  logFC=rep(DEgenesTop40_proGR$logFC, 
+                as.numeric(count_overlaps(DEgenesTop40_proGR, GRangeProbe600k)))) %>% 
+  inset("Change", value=ifelse(.$logFC>0, "Up", "Down")) %>% 
+  left_join(as.data.frame(mcols(GRangeProbe600k)), by="Name") %>% 
+  dplyr::select(1,2,4, 7:97) %>% 
+  reshape2::melt() %>% 
+  `colnames<-`(c("ProbeNames", "Genes", "Change","Samples", "Beta")) %>% 
+  dplyr::mutate(Samples, Samples=str_replace_all(Samples, "X", "")) %>% 
+  left_join(., 
+            rownames_to_column(as.data.frame(phenoDataPlacenta91[, c("Trimester", "Oxygen")]), var="Samples"), 
+            by="Samples")
+
+Top40GenePro_Probes_df %>% head()
+
+# draw boxplot
+## upregulated genes
+Top40GenesPro_ProbesPlotUP <-  
+  Top40GenePro_Probes_df[Top40GenePro_Probes_df$Change=="Up",] %>% 
+  ggplot(aes(x=Genes, y=Beta,colour=Oxygen))+
+  geom_boxplot()+
+  scale_color_brewer(palette = "Dark2", labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  labs(x="Promoter of up regulated genes", y="Beta values", colour="Groups")+ #Genes
+  # facet_wrap(~Change)+
+  # theme(text = element_text(size=9),
+  #       legend.title=element_text(size=9), legend.position="right",
+  #       legend.text=element_text(size=9),
+  #       axis.text.x = element_text(angle = 45, hjust = 1, colour = "black"))
+  theme(text = element_text(size=20),
+        legend.title=element_text(size=20), legend.position="right",
+        legend.text=element_text(size=20),
+        axis.text.x = element_text(size=12, angle = 45, hjust = 1, colour = "black"))
+
+## down regulated genes
+Top40GenesPro_ProbesPlotDown <-  
+  Top40GenePro_Probes_df[Top40GenePro_Probes_df$Change=="Down",] %>% 
+  ggplot(aes(x=Genes, y=Beta,colour=Oxygen))+
+  geom_boxplot()+
+  scale_color_brewer(palette = "Dark2", labels=c("LOE"="<=10 weeks'", "NOE"=">10 weeks'"))+
+  labs(x="Promoter of down regulated genes", y="Beta values", colour="Groups")+ #Genes
+  theme(text = element_text(size=20),
+        legend.title=element_text(size=20), legend.position="right",
+        legend.text=element_text(size=20),
+        axis.text.x = element_text(size=12, angle = 45, hjust = 1, colour = "black"))
+
+tiff(filename = 
+     "/home/qianhui/RNAseq_NIH/Figures/boxplot_GenesProTop40loeNoe.tiff",
+     width = 35, height = 12, units = "cm", res = 300)
+
+theme_set(theme_pubr())
+ggarrange(Top40GenesPro_ProbesPlotUP, Top40GenesPro_ProbesPlotDown, 
+          # labels = c("A", "B"), 
+          # label.x = c(0, -0.05),
+          # widths = c(1.5,1),
+          font.label = list(size = 36, face = "bold", color ="black"),
+          ncol = 2, 
+          common.legend=TRUE
+          # legend="right"
+          )
+dev.off()
+
+save(Top40Genes_ProbesPlotUP, Top40Genes_ProbesPlotDown, 
+     file = "/home/qianhui/RNAseq_NIH/Figures/Top40Genes_ProbesPlot.rds")
+
+```
+
+
+
+
+
+
+
+
+
+
