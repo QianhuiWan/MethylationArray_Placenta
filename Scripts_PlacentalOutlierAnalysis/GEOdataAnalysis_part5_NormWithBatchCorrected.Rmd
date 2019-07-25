@@ -51,7 +51,7 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/MsetsOf9TissueTypes.RData")
 
 # Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples
-load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples408_Beta_MDS.RData")
 
 # annotation needed for using functions
 ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
@@ -136,16 +136,16 @@ registerDoParallel(cores = 10)
   
   # plot MDS
   ## MDS for M values
-  MDS_norm551.M <- plotMDS(Mnorm_v1, top = nrow(Mnorm_v1), 
+  MDS_norm408.M <- plotMDS(Mnorm_v1, top = nrow(Mnorm_v1), 
                            labels = phenotype_matched$Sample, gene.selection = "common")
   ## MDS for Beta values
-  MDS_norm551.Beta <- plotMDS(Join_allNorm.df_v2, top = nrow(Join_allNorm.df_v2), 
+  MDS_norm408.Beta <- plotMDS(Join_allNorm.df_v2, top = nrow(Join_allNorm.df_v2), 
                            labels = phenotype_matched$Sample, gene.selection = "common")
 
   # put into a list
   NormBMlist <- list(NormBAll=Join_allNorm.df_v2, NormMAll=Mnorm_v1, 
                      phenoDataAll=phenotype_matched, 
-                     MDS_norm551.Beta=MDS_norm551.Beta, MDS_norm551.M=MDS_norm551.M)
+                     MDS_norm408.Beta=MDS_norm408.Beta, MDS_norm408.M=MDS_norm408.M)
   
   saveRDS(NormBMlist, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
   
@@ -216,9 +216,9 @@ TissueBMvalInfo <- tibble(
 # use plotMDSFUN function
 for(i in TissueBMvalInfo$TissueTypes){
   
-  plotMDSFUN(Normal_betaNorm = normCali_BMof9TissueTypes_CaliTogether$Beta, 
+  plotMDSFUN(Normal_betaNorm = NormBMlist$NormBAll, 
              Tissue = i, 
-             PhenoData = normCali_BMof9TissueTypes_CaliTogether$BetaPhenoData)
+             PhenoData = NormBMlist$phenoDataAll)
 }
 
 ```
@@ -250,7 +250,7 @@ plotAll <- function(BMvalue, GEO_phenotypes_joinedSamples){
   par(mfrow=c(1,1), cex=0.8)
   densityPlot(BMvalue, sampGroups = GEO_phenotypes_408$Sample, xlab = "Normalised Beta values")
   
-  # return Join.df_v2, GEO_phenotypes_norm551 and MDS_norm551
+  # return Join.df_v2, GEO_phenotypes_norm408 and MDS_norm408
   output_List <- list(JoinAll=BMvalue, phenoDataAll=GEO_phenotypes_408, MDSnorm408=MDS_norm408)
   return(output_List)
 }
@@ -261,20 +261,20 @@ plotAll <- function(BMvalue, GEO_phenotypes_joinedSamples){
 ### use `plotAll` function
 ```{r USEplotAll}
 
-MDSnormCali551_Beta <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$Beta,
+MDSnormCali408_Beta <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$Beta,
                            GEO_phenotypes_joinedSamples = normCali_BMof9TissueTypes_CaliTogether$BetaPhenoData)
 
-MDSnormCali551_M <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$M, 
+MDSnormCali408_M <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$M, 
                         GEO_phenotypes_joinedSamples = normCali_BMof9TissueTypes_CaliTogether$BetaPhenoData)
 
 
-save(MDSnormCali551_Beta, MDSnormCali551_M,
-     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamplesNormalisedCalibrated551_BetaM_MDS.RData")
+save(MDSnormCali408_Beta, MDSnormCali408_M,
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamplesNormalisedCalibrated408_BetaM_MDS.RData")
 
 ```
 
 
-## C) MDS for all 551 samples use `ggplot`
+## C) MDS for all 408 samples use `ggplot`
 
 ### function for plot MDS with ggplot -- `ggplotMDS` function
 ```{r ggplotMDS}
@@ -285,24 +285,24 @@ pal2 <- colorFun(13)
 
 # set up df for ggplot
 ## check sample orders were the same or not
-table(colnames(MDSnormCali551_Beta$JoinAll)==MDSnormCali551_Beta$phenoDataAll$Sample_name)
-table(colnames(MDSnormCali551_M$JoinAll)==MDSnormCali551_M$phenoDataAll$Sample_name)
+table(colnames(MDSnormCali408_Beta$JoinAll)==MDSnormCali408_Beta$phenoDataAll$Sample_name)
+table(colnames(MDSnormCali408_M$JoinAll)==MDSnormCali408_M$phenoDataAll$Sample_name)
 
 # ggplotMDS function
 ## value -- Beta or M
-ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
+ggplotMDS <- function(MDS_norm408, GEO_phenotypes_norm408, value){
   
-  new_plotDF <- data.frame(MDS_norm551$x, 
-      MDS_norm551$y,
-      GA = GEO_phenotypes_norm551$Gestation,
-      FetalSex= GEO_phenotypes_norm551$Fetal_Sex,
-      Tissue=str_replace_all(GEO_phenotypes_norm551$Sample, c(
+  new_plotDF <- data.frame(MDS_norm408$x, 
+      MDS_norm408$y,
+      GA = GEO_phenotypes_norm408$Gestation,
+      FetalSex= GEO_phenotypes_norm408$Fetal_Sex,
+      Tissue=str_replace_all(GEO_phenotypes_norm408$Sample, c(
                                         "placental"="Placental",
                                         "umbilical"="Umbilical")),
-      Trimester=GEO_phenotypes_norm551$Trimester,
-      Study=GEO_phenotypes_norm551$Study,
-      Outlier=ifelse(GEO_phenotypes_norm551$Additional_Info%in%"Outlier", "Outlier", "Standard"),
-      ArrayType=GEO_phenotypes_norm551$ArrayType
+      Trimester=GEO_phenotypes_norm408$Trimester,
+      Study=GEO_phenotypes_norm408$Study,
+      Outlier=ifelse(GEO_phenotypes_norm408$Additional_Info%in%"Outlier", "Outlier", "Standard"),
+      ArrayType=GEO_phenotypes_norm408$ArrayType
     
   )
 
@@ -313,7 +313,7 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
   namedPal2 <- pal2 %>% `names<-`(unique(new_plotDF$Tissue))
   TissueShape <- factor(new_plotDF$Tissue)
 
-  MDSplot_norm551 <- new_plotDF %>%
+  MDSplot_norm408 <- new_plotDF %>%
     ggplot(aes(x, y)) + 
     geom_point(aes(shape = Study, col=Trimester), alpha = 1, size = 5)+ 
     # scale_color_manual(values = namedPal2)+
@@ -328,7 +328,7 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
     width = 13, height = 7)
 
   theme_set(theme_bw())
-  MDSplot_norm551
+  MDSplot_norm408
   dev.off()
 
   # save as tiff
@@ -336,12 +336,12 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
      width = 20,height = 15, units="cm",  res = 300)
 
   theme_set(theme_bw())
-  MDSplot_norm551
+  MDSplot_norm408
   dev.off()
   
   # show the plot
   theme_set(theme_bw())
-  MDSplot_norm551 %>% print()
+  MDSplot_norm408 %>% print()
   
   # return new_plotDF
   return(new_plotDF)
@@ -353,9 +353,9 @@ ggplotMDS <- function(MDS_norm551, GEO_phenotypes_norm551, value){
 ### use `ggplotMDS` function
 ```{r useggplotMDS}
 
-# for MDSnormCali551_Beta
-AllBetaMDSinfo <- ggplotMDS(MDS_norm551 = MDSnormCali551_Beta$MDSnorm551, 
-          GEO_phenotypes_norm551 = MDSnormCali551_Beta$phenoDataAll, 
+# for MDSnormCali408_Beta
+AllBetaMDSinfo <- ggplotMDS(MDS_norm408 = MDSnormCali408_Beta$MDSnorm408, 
+          GEO_phenotypes_norm408 = MDSnormCali408_Beta$phenoDataAll, 
           value = "Beta")
 
 AllBetaMDSinfo %>%
@@ -367,9 +367,9 @@ AllBetaMDSinfo %>%
   theme(text = element_text(size=15))
 
 
-# for MDSnormCali551_M
-AllMMDSinfo <- ggplotMDS(MDS_norm551 = MDSnormCali551_M$MDSnorm551, 
-          GEO_phenotypes_norm551 = MDSnormCali551_M$phenoDataAll, 
+# for MDSnormCali408_M
+AllMMDSinfo <- ggplotMDS(MDS_norm408 = MDSnormCali408_M$MDSnorm408, 
+          GEO_phenotypes_norm408 = MDSnormCali408_M$phenoDataAll, 
           value = "M")
 
 AllMMDSinfo %>%
@@ -528,7 +528,7 @@ CombatFUN <- function(MMat, phenotype){
 ## B) use `CombatFUN` to correct batch
 ```{r useCombatFUN}
 
-# MDSnormCali551_M modified BMIQ calibrated data
+# MDSnormCali408_M modified BMIQ calibrated data
 BMall_combat <- CombatFUN(MMat = NormBMlist$NormMAll, 
                           phenotype = NormBMlist$phenoDataAll)
 
@@ -545,21 +545,21 @@ table(colnames(BMall_combat$Beta)==BMall_combat$PhenoData$Sample_name)
 
 ## plot MDS plot
 par(mfrow=c(1,1))
-MDS_normCorrect551.Beta <- plotMDS(BMall_combat$Beta, top=nrow(BMall_combat$Beta), 
+MDS_normCorrect408.Beta <- plotMDS(BMall_combat$Beta, top=nrow(BMall_combat$Beta), 
                               labels= BMall_combat$PhenoData$Sample, gene.selection="common") 
 
 par(mfrow=c(1,1))
-MDS_normCorrect551.M <- plotMDS(BMall_combat$M, top=nrow(BMall_combat$M), 
+MDS_normCorrect408.M <- plotMDS(BMall_combat$M, top=nrow(BMall_combat$M), 
                               labels= BMall_combat$PhenoData$Sample, gene.selection="common") 
 
 
-AllMMDSinfo <- ggplotMDS(MDS_norm551 = MDS_normCorrect551.M, 
-          GEO_phenotypes_norm551 = BMall_combat$PhenoData, 
+AllMMDSinfo <- ggplotMDS(MDS_norm408 = MDS_normCorrect408.M, 
+          GEO_phenotypes_norm408 = BMall_combat$PhenoData, 
           value = "correctedMv1")
 
   
-save(BMall_combat, MDS_normCorrect551.Beta, MDS_normCorrect551.M, 
-     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples_NormBatchCorrect551_BetaM_MDS_OutlierConsidered.RData")
+save(BMall_combat, MDS_normCorrect408.Beta, MDS_normCorrect408.M, 
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples_NormBatchCorrect408_BetaM_MDS_OutlierConsidered.RData")
 
 Mplacenta_combat <- BMall_combat$M[,BMall_combat$PhenoData$Sample%in%"Placenta"]
 lebels <- BMall_combat$PhenoData[BMall_combat$PhenoData$Sample%in%"Placenta",]
@@ -571,9 +571,9 @@ plotMDS(Mplacenta_combat, top=nrow(Mplacenta_combat), labels = lebels$Sample, ge
 
 ## D) use ggplot to plot MDS, use `ggplotMDS` function again
 ```{r useggplotMDSagain}
-# for MDS_normCorrect551_Beta
-AllBetaMDSinfo <- ggplotMDS(MDS_norm551 = MDS_normCorrect551.Beta, 
-          GEO_phenotypes_norm551 = BMall_combat$PhenoData, 
+# for MDS_normCorrect408_Beta
+AllBetaMDSinfo <- ggplotMDS(MDS_norm408 = MDS_normCorrect408.Beta, 
+          GEO_phenotypes_norm408 = BMall_combat$PhenoData, 
           value = "correctedBeta")
 
 AllBetaMDSinfo %>%
@@ -584,9 +584,9 @@ AllBetaMDSinfo %>%
   labs(x="Dimension 1", y="Dimension 2")+
   theme(text = element_text(size=15))
 
-# for MDS_normCorrect551_M
-AllMMDSinfo <- ggplotMDS(MDS_norm551 = MDS_normCorrect551.M, 
-          GEO_phenotypes_norm551 = BMall_combat$PhenoData, 
+# for MDS_normCorrect408_M
+AllMMDSinfo <- ggplotMDS(MDS_norm408 = MDS_normCorrect408.M, 
+          GEO_phenotypes_norm408 = BMall_combat$PhenoData, 
           value = "correctedM")
 
 AllMMDSinfo %>%
@@ -603,16 +603,16 @@ AllMMDSinfo %>%
 
 # 5. 1st and term samples, before and after batch correction
 
-## A) Use MDS_norm551.M and MDS_norm551.beta objects in `NormBMlist` list: batch not corrected
+## A) Use MDS_norm408.M and MDS_norm408.beta objects in `NormBMlist` list: batch not corrected
 ```{r}
 
 # NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
 NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_131.rds")
 
-# MDS_norm551.M or NormBMlist$MDS_norm551.M
-table(rownames(NormBMlist$MDS_norm551.M$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
-MDSinfo_uncorrected <- ggplotMDS(MDS_norm551 = NormBMlist$MDS_norm551.M, 
-                                 GEO_phenotypes_norm551 = NormBMlist$phenoDataAll, 
+# MDS_norm408.M or NormBMlist$MDS_norm408.M
+table(rownames(NormBMlist$MDS_norm408.M$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
+MDSinfo_uncorrected <- ggplotMDS(MDS_norm408 = NormBMlist$MDS_norm408.M, 
+                                 GEO_phenotypes_norm408 = NormBMlist$phenoDataAll, 
                                  value = "unBatchCorrectedM")
 
 MDSinfo_uncorrected %>%
@@ -631,10 +631,10 @@ MDSinfo_uncorrected %>%
   labs(x="Dimension 1", y="Dimension 2")+
   theme(text = element_text(size=15))
 
-# MDS_norm551.Beta or NormBMlist$MDS_norm551.Beta
-table(rownames(NormBMlist$MDS_norm551.Beta$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
-MDSinfo_uncorrected_beta <- ggplotMDS(MDS_norm551 = NormBMlist$MDS_norm551.Beta, 
-                                      GEO_phenotypes_norm551 = NormBMlist$phenoDataAll, 
+# MDS_norm408.Beta or NormBMlist$MDS_norm408.Beta
+table(rownames(NormBMlist$MDS_norm408.Beta$distance.matrix)==NormBMlist$phenoDataAll$Sample_name)
+MDSinfo_uncorrected_beta <- ggplotMDS(MDS_norm408 = NormBMlist$MDS_norm408.Beta, 
+                                      GEO_phenotypes_norm408 = NormBMlist$phenoDataAll, 
                                       value = "unBatchCorrectedBeta")
 
 MDSinfo_uncorrected_beta %>%
@@ -647,7 +647,7 @@ MDSinfo_uncorrected_beta %>%
 
 
 # save plots
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS551_notCorrected.tiff",
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS408_notCorrected.tiff",
     width = 20, height = 12, units = "cm", res = 300)
 theme_set(theme_bw())
 MDSinfo_uncorrected %>%
@@ -659,7 +659,7 @@ MDSinfo_uncorrected %>%
   theme(text = element_text(size=15))
 dev.off()
 
-pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS551_notCorrected.pdf", 
+pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS408_notCorrected.pdf", 
     width = 13, height = 7)
 theme_set(theme_bw())
 MDSinfo_uncorrected %>%
@@ -675,7 +675,7 @@ dev.off()
 ```
 
 
-## B) Use `quantro` to look at global differences between tissue types (all 551 samples)
+## B) Use `quantro` to look at global differences between tissue types (all 408 samples)
 
 ```{r}
 
@@ -698,7 +698,7 @@ Note: we can see from the quantroStat value (40.0351) from `qtest` that differen
 ## B) No batch corrected: MDS plot for 1st trimester samples and term samples
 ```{r}
 
-# check sample (551 samples) order first
+# check sample (408 samples) order first
 table(colnames(NormBMlist$NormBAll)==NormBMlist$phenoDataAll$Sample_name)
 table(colnames(NormBMlist$NormMAll)==NormBMlist$phenoDataAll$Sample_name)
 
@@ -718,8 +718,8 @@ MDS_NormBAll_1st <- plotMDS(NormBAll_1st, top=nrow(NormBAll_1st),
                          labels = Sample_1st$Sample,
                          gene.selection = "common")
 
-MDSinfo_NormBAll_1st <- ggplotMDS(MDS_norm551 = MDS_NormBAll_1st, 
-                               GEO_phenotypes_norm551 = Sample_1st, 
+MDSinfo_NormBAll_1st <- ggplotMDS(MDS_norm408 = MDS_NormBAll_1st, 
+                               GEO_phenotypes_norm408 = Sample_1st, 
                                value = "MDS_B_T1_samples")
 
 ### use MDS info. and plot with ggplot
@@ -735,8 +735,8 @@ MDS_NormBAll_term <- plotMDS(NormBAll_Term, top=nrow(NormBAll_Term),
                          labels = Sample_term$Sample,
                          gene.selection = "common")
 
-MDSinfo_NormBAll_term <- ggplotMDS(MDS_norm551 = MDS_NormBAll_term, 
-                                   GEO_phenotypes_norm551 = Sample_term, 
+MDSinfo_NormBAll_term <- ggplotMDS(MDS_norm408 = MDS_NormBAll_term, 
+                                   GEO_phenotypes_norm408 = Sample_term, 
                                    value = "MDS_B_term_samples")
 ### use MDS info. and plot with ggplot
 MDSinfo_NormBAll_term %>%
@@ -752,8 +752,8 @@ MDS_NormMAll_1st <- plotMDS(NormMAll_1st, top=nrow(NormMAll_1st),
                          labels = Sample_1st$Sample,
                          gene.selection = "common")
 
-MDSinfo_NormMAll_1st <- ggplotMDS(MDS_norm551 = MDS_NormMAll_1st, 
-                               GEO_phenotypes_norm551 = Sample_1st, 
+MDSinfo_NormMAll_1st <- ggplotMDS(MDS_norm408 = MDS_NormMAll_1st, 
+                               GEO_phenotypes_norm408 = Sample_1st, 
                                value = "MDS_M_T1_samples")
 ### use MDS info. and plot with ggplot
 MDSinfo_NormMAll_1st %>%
@@ -768,8 +768,8 @@ MDS_NormMAll_term <- plotMDS(NormMAll_Term, top=nrow(NormMAll_Term),
                          labels = Sample_term$Sample,
                          gene.selection = "common")
 
-MDSinfo_NormMAll_term <- ggplotMDS(MDS_norm551 = MDS_NormMAll_term, 
-                                   GEO_phenotypes_norm551 = Sample_term, 
+MDSinfo_NormMAll_term <- ggplotMDS(MDS_norm408 = MDS_NormMAll_term, 
+                                   GEO_phenotypes_norm408 = Sample_term, 
                                    value = "MDS_M_term_samples")
 ### use MDS info. and plot with ggplot
 MDSinfo_NormMAll_term %>%
@@ -880,8 +880,8 @@ save(BM_T1_combat, BM_Term_combat, file = "/home/qianhui/DNAme/Process_decidual/
 MDS_T1_combat <- plotMDS(BM_T1_combat$M, top=nrow(BM_T1_combat$M), 
               labels = BM_T1_combat$PhenoData$Sample, gene.selection = "common")
 
-MDSinfoT1_combat <- ggplotMDS(MDS_norm551 = MDS_T1_combat, 
-                    GEO_phenotypes_norm551 = Sample_1st, 
+MDSinfoT1_combat <- ggplotMDS(MDS_norm408 = MDS_T1_combat, 
+                    GEO_phenotypes_norm408 = Sample_1st, 
                     value = "T1_M_CombatremoveBatchEffect")
 
 tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1SamplesMDS_CombatCorrected.tiff",
@@ -903,8 +903,8 @@ Outlier <- factor(ifelse(BM_Term_combat$PhenoData$Additional_Info%in%"Outlier", 
 MDS_Term_combat <- plotMDS(BM_Term_combat$M, top=nrow(BM_Term_combat$M), 
                            labels = Outlier, gene.selection = "common")
 
-MDSinfoTerm_combat <- ggplotMDS(MDS_norm551 = MDS_Term_combat, 
-                    GEO_phenotypes_norm551 = BM_Term_combat$PhenoData, 
+MDSinfoTerm_combat <- ggplotMDS(MDS_norm408 = MDS_Term_combat, 
+                    GEO_phenotypes_norm408 = BM_Term_combat$PhenoData, 
                     value = "Term_M_removeBatchEffect")
 
 tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TermSamplesMDS_CombatCorrected.tiff",
@@ -966,8 +966,8 @@ save(svaCorrect_T1_M, svaCorrect_Term_M, file = "/home/qianhui/DNAme/Process_dec
 MDS_T1 <- plotMDS(svaCorrect_T1_M$mval_sv1Removed, top=nrow(svaCorrect_T1_M$mval_sv1Removed), 
               labels = Sample_1st$Sample, gene.selection = "common")
 
-MDSinfoT1 <- ggplotMDS(MDS_norm551 = MDS_T1, 
-                    GEO_phenotypes_norm551 = Sample_1st, 
+MDSinfoT1 <- ggplotMDS(MDS_norm408 = MDS_T1, 
+                    GEO_phenotypes_norm408 = Sample_1st, 
                     value = "T1_M_removeBatchEffect")
 
 
@@ -983,8 +983,8 @@ MDSinfoT1 %>%
 MDS_Term <- plotMDS(svaCorrect_Term_M$mval_sv1Removed, top=nrow(svaCorrect_Term_M$mval_sv1Removed), 
               labels = Sample_term$Sample, gene.selection = "common")
 
-MDSinfoTerm <- ggplotMDS(MDS_norm551 = MDS_Term, 
-                    GEO_phenotypes_norm551 = Sample_term, 
+MDSinfoTerm <- ggplotMDS(MDS_norm408 = MDS_Term, 
+                    GEO_phenotypes_norm408 = Sample_term, 
                     value = "Term_M_removeBatchEffect")
 
 MDSinfoTerm %>%
@@ -999,24 +999,24 @@ MDSinfoTerm %>%
 
 
 
-# 6. regress out batch estimated from control probes (whole data set, 551 smaples)
+# 6. regress out batch estimated from control probes (whole data set, 408 smaples)
 
 ## plot batch corrected data (batch estimated based on control probes)
 ```{r}
 
 # load the data of control probes
-# Control551_Beta, Control551_M
-load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Controls_BM_all551.RData")
+# Control408_Beta, Control408_M
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Controls_BM_all408.RData")
 
 ## Response MDS$x varies with control PC1:
-table(NormBMlist$phenoDataAll$Sample_name==rownames(Control551_M$PCA_control$ind$coord))
-table(colnames(NormBMlist$NormMAll)==rownames(Control551_M$PCA_control$ind$coord))
-cor.test(NormBMlist$MDS_norm551.M$x, Control551_M$PCA_control$ind$coord[,1])
+table(NormBMlist$phenoDataAll$Sample_name==rownames(Control408_M$PCA_control$ind$coord))
+table(colnames(NormBMlist$NormMAll)==rownames(Control408_M$PCA_control$ind$coord))
+cor.test(NormBMlist$MDS_norm408.M$x, Control408_M$PCA_control$ind$coord[,1])
 
 ## Fit model:
-NormBMlist$phenoDataAll$ControlPC1 <- Control551_M$PCA_control$ind$coord[,1]
-NormBMlist$phenoDataAll$ControlPC2 <- Control551_M$PCA_control$ind$coord[,2]
-# NormBMlist$phenoDataAll$ControlPC3 <- Control551_M$PCA_control$ind$coord[,3]
+NormBMlist$phenoDataAll$ControlPC1 <- Control408_M$PCA_control$ind$coord[,1]
+NormBMlist$phenoDataAll$ControlPC2 <- Control408_M$PCA_control$ind$coord[,2]
+# NormBMlist$phenoDataAll$ControlPC3 <- Control408_M$PCA_control$ind$coord[,3]
 
 design1 <- model.matrix(~ControlPC1+ControlPC2, data= NormBMlist$phenoDataAll) #ControlPC1+ControlPC2
 
@@ -1029,8 +1029,8 @@ Residuals <- residuals.MArrayLM(fit2_limma_eBayesAdjusted, NormBMlist$NormMAll)
 MDS_residuals <- plotMDS(Residuals, top=nrow(Residuals), 
                          labels = NormBMlist$phenoDataAll$Sample, gene.selection = "common")
 
-MDSinfo_residuals <- ggplotMDS(MDS_norm551 = MDS_residuals, 
-                               GEO_phenotypes_norm551 = NormBMlist$phenoDataAll, 
+MDSinfo_residuals <- ggplotMDS(MDS_norm408 = MDS_residuals, 
+                               GEO_phenotypes_norm408 = NormBMlist$phenoDataAll, 
                                value = "MDS_residuals")
 
 save(Residuals, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected_residuals.rds")
@@ -1055,12 +1055,12 @@ y <- removeBatchEffect(NormBMlist$NormMAll,
                        # batch = NormBMlist$phenoDataAll$Study,
                        # batch2 = NormBMlist$phenoDataAll$ArrayType,
                        # covariates = NormBMlist$phenoDataAl$ControlPC1,
-                       covariates = Control551_M$PCA_control$ind$coord[,1:2],
+                       covariates = Control408_M$PCA_control$ind$coord[,1:2],
                        design=design)
 
 MDS<- plotMDS(y, top=nrow(y), labels = NormBMlist$phenoDataAll$Sample, gene.selection = "common")
-MDSinfo <- ggplotMDS(MDS_norm551 = MDS, 
-                    GEO_phenotypes_norm551 = NormBMlist$phenoDataAll, 
+MDSinfo <- ggplotMDS(MDS_norm408 = MDS, 
+                    GEO_phenotypes_norm408 = NormBMlist$phenoDataAll, 
                     value = "M_removeBatchEffect")
 
 MDSinfo %>%
@@ -1079,7 +1079,7 @@ MDSinfo %>%
 ## ... Now use lm1$residuals instead of dat$y
 
 # save plots
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS551_controlProbeCorrected.tiff",
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS408_controlProbeCorrected.tiff",
     width = 20, height = 12, units = "cm", res = 300)
 theme_set(theme_bw())
 MDSinfo_residuals %>%
@@ -1091,7 +1091,7 @@ MDSinfo_residuals %>%
   theme(text = element_text(size=15))
 dev.off()
 
-pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS551_controlProbeCorrected.pdf", 
+pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/allSamplesMDS408_controlProbeCorrected.pdf", 
     width = 13, height = 7)
 theme_set(theme_bw())
 MDSinfo_residuals %>%
@@ -1155,7 +1155,7 @@ dev.off()
 
 <!-- # INCs are Illumina negtive controls -->
 <!-- # INCs <- getINCs(EPIC_RG_Placenta) -->
-<!-- INCs <- Control551_M$JoinAllControl -->
+<!-- INCs <- Control408_M$JoinAllControl -->
 
 <!-- # Mc means combine m-value and Illumina negtive controls -->
 <!-- Mc <- base::rbind(NormBMlist$NormMAll, INCs) -->
@@ -1184,7 +1184,7 @@ dev.off()
 <!-- ``` -->
 
 
-# 7. SVA to remove batch (whole data set, 551 smaples)
+# 7. SVA to remove batch (whole data set, 408 smaples)
 ```{r}
 
 # factors to consider
@@ -1215,8 +1215,8 @@ y <- removeBatchEffect(NormBMlist$NormMAll,
                        design=design)
 
 MDS<- plotMDS(y, top=nrow(y), labels = NormBMlist$phenoDataAll$Sample, gene.selection = "common")
-MDSinfo <- ggplotMDS(MDS_norm551 = MDS, 
-                    GEO_phenotypes_norm551 = NormBMlist$phenoDataAll, 
+MDSinfo <- ggplotMDS(MDS_norm408 = MDS, 
+                    GEO_phenotypes_norm408 = NormBMlist$phenoDataAll, 
                     value = "M_removeBatchEffect")
 
 MDSinfo %>%
