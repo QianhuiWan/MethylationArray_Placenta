@@ -90,6 +90,7 @@ There are many tissue types for normal tissue samples around placenta, such as c
 
 There are 9 tissue types (we choose tissue types located near placenta) in total from GEO.
 
+
 ## A) Function for filtering and bg correction and normalisation
 
 FilterFUN & use FilterFUN
@@ -97,7 +98,9 @@ FilterFUN & use FilterFUN
 TissueType argument in this function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, 
 placental mesenchyme, placental trophoblast, umbilical cord, Umbilical cord blood.
 
-### Function that need to be called in `FilterFUN`
+
+### Function that need to be called in `FilterFUN` to get the number of beads for each probe
+If a probe has less than 3 beads, we need to remove it because the intensity of this probe is not reliable.
 ```{r}
 # Tissue: Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
 
@@ -168,6 +171,7 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType,
   
   } else {
     
+    RGset <- normalize.illumina.control(rgSet = RGset, reference = 1)
     methylset_raw <- preprocessRaw(RGset) # 866238
     
   }
@@ -282,7 +286,8 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType,
 
 ```
 
-* I will do nomalisation in next Rmd document, because there are batch effects between GEO studies, I need to use BMIQ and modified BMIQ to normalise all data sets.
+** I will do nomalisation in next Rmd document, because there may be batch effects between GEO studies, I need to use BMIQ and modified BMIQ to normalise all data sets.**
+
 
 
 ## B) Use the function FilterFUN to get bg corrected beta and M values for all the samples from 9 kinds of tissues located around placenta during early development.
@@ -427,109 +432,8 @@ save(
 ```
 
 
-# 3. MDS plot using all data
 
-## A) Function `plotMDSFUN`
-
-```{r plotMDSFUN}
-# phenoData: GEO_phenotypes, meta data for all samples
-# Array: "450k" or "EPIC"
-
-plotMDSFUN <- function(Normal_betaNorm, Tissue, GEO_phenotypes, Array, Study,...){
-  registerDoParallel(cores = 10)
-
-  if(Array == "450k"){
-
-  GEO_phenotypes_450k <- GEO_phenotypes[GEO_phenotypes$ArrayType=='450K',]
-  # get 450k, meta data for the tissue
-  GEO_phenotypes_Tissue <- GEO_phenotypes_450k %>% 
-  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
-  filter(str_detect(Disease, pattern="Uncomplicated$"))
-  
-  }else if(Array == "EPIC"){
-  
-  GEO_phenotypes_EPIC <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
-  # get EPIC, meta data for the tissue
-  GEO_phenotypes_Tissue <- GEO_phenotypes_EPIC %>% 
-  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
-  filter(str_detect(Disease, pattern="Uncomplicated$"))
-  
-  }
-  
-  if(Study=="ourStudy"){
-  GEO_phenotypes_EPIC <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
-  # get EPIC, meta data for the tissue
-  GEO_phenotypes_Tissue <- GEO_phenotypes_EPIC %>% 
-  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
-  filter(str_detect(Study, pattern="ourStudy"))
-  }
-  
-  # then get beta values for each tissue type
-  Normal_betaNorm_forPlot <- get(Normal_betaNorm)$Beta
-  
-  # plotMDS plots
-  if(Normal_betaNorm=="BM_450k_normalPlacenta_v1"){
-     label <- GEO_phenotypes_Tissue$Trimester[-5]
-  }else if(Normal_betaNorm=="BM_450k_MaternalBlood_v1"){
-     label <- GEO_phenotypes_Tissue$Trimester[-8]
-  }else{
-     label <- GEO_phenotypes_Tissue$Trimester
-  } # end if
-
-  if(ncol(Normal_betaNorm_forPlot)>=3){
-  par(mfrow=c(1,1), ...)
-  plotMDS(Normal_betaNorm_forPlot, top=nrow(Normal_betaNorm_forPlot), 
-          main=Tissue,  labels= label, gene.selection="common") 
-  }
-  # labels= label, col= pal[factor(label)],
-
-  # plot density plot anagin with other 96 samples 
-  par(mfrow=c(1,1), cex=0.8, ...)
-  densityPlot(Normal_betaNorm_forPlot, sampGroups = label, 
-              main=Tissue, xlab = "Normalised Beta values")
-
-}# end function
-
-
-```
-
-
-## B) Use function `plotMDSFUN`
-
-```{r UseplotMDSFUN}
-
-TissueBMvalInfo <- data_frame(
-  TissueBMvalNames=c("BM_450k_normalPlacenta_v1", "BM_EPIC_normalPlacenta",
-                     "BM_EPIC_normalPlacenta_ourStudy",
-                     "BM_450k_Amnion", #"BM_EPIC_Amnion",
-                     "BM_450k_Chorion", #"BM_EPIC_Chorion",
-                     "BM_450k_Decidua", "BM_EPIC_Decidua",
-                     "BM_450k_MaternalBlood_v1", #"BM_450k_mesenchyme",
-                     # "BM_450k_trophoblast", 
-                     # "BM_450k_UC", 
-                     "BM_450k_UCB"
-                      ),
-  TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
-                "Maternal whole blood",# "placental mesenchyme", 
-                # "placental trophoblast", "umbilical cord", 
-                "Umbilical cord blood")
-)
-
-
-# use plotMDSFUN function
-for(i in TissueBMvalInfo$TissueBMvalNames){
-  
-  plotMDSFUN(Normal_betaNorm = i, 
-             Tissue = TissueBMvalInfo[TissueBMvalInfo$TissueBMvalNames%in%i,]$TissueTypes, 
-             GEO_phenotypes = GEO_phenotypes_Filtered, # use the filtered GEO phenoTypes data
-             Array = ifelse(str_detect(i, pattern = "450k"), "450k", "EPIC"),
-             Study = ifelse(str_detect(i, pattern = "ourStudy"), "ourStudy", "PublicStudy"))
-}
-
-```
-
-
-## C) left_join all beta values and plot in one MDS plot
+## C) left_join all beta values from all types of tissues
 ```{r, joinAllBetas}
 registerDoParallel(cores = 10)
 
@@ -589,16 +493,21 @@ MDS_joinedSamples <- plotMDS(Join.df_v2, top=nrow(Join.df_v2), labels= label, ge
 
 # plot density plot anagin with other 96 samples 
 par(mfrow=c(1,1), cex=0.8)
-densityPlot(Join.df_v2, sampGroups = label, xlab = "Normalised Beta values")
+densityPlot(Join.df_v2, sampGroups = label, xlab = "Corrected Beta values")
 
+
+# get PCA result
+PCA_all408_bgCorrected <- FactoMineR::PCA(base::t(Join.df_v2))
 
 save(Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples, 
-     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+     file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples408_Beta_MDS.RData")
+
+saveRDS(PCA_all408_bgCorrected, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all408_bgCorrected.rds")
 
 ```
 
 
-## D) 1 MDS for all 408 samples
+## D) ggplot to plot MDS for all 408 samples
 ```{r}
 
 library(RColorBrewer)
@@ -606,14 +515,14 @@ colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
 pal2 <- colorFun(13)
 
 # Join.df_v2, label, GEO_phenotypes_joinedSamples, MDS_joinedSamples, 
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples408_Beta_MDS.RData")
 
 # set up nes df for ggplot
 ## check sample orders were the same or not
 table(colnames(Join.df_v2)==GEO_phenotypes_joinedSamples$Sample_name)
 
-new_plotDF <- data.frame(MDS_joinedSamples$x, 
-    MDS_joinedSamples$y,
+new_plotDF <- data.frame(PCA_all408_bgCorrected$ind$coord[, 1], 
+    PCA_all408_bgCorrected$ind$coord[, 2],
     GA = GEO_phenotypes_joinedSamples$Gestation,
     FetalSex= GEO_phenotypes_joinedSamples$Fetal_Sex,
     Tissue=str_replace_all(GEO_phenotypes_joinedSamples$Sample, c(
@@ -633,7 +542,7 @@ TissueShape <- factor(new_plotDF$Tissue)
 
 MDSplot_joinedSamples <- new_plotDF %>%
   ggplot(aes(x, y)) + 
-  geom_point(aes(shape = Study, col=Trimester), alpha = 1, size = 5)+ 
+  geom_point(aes(shape = Trimester, col=Study), alpha = 1, size = 5)+ 
   # scale_color_manual(values = namedPal2)+
   scale_shape_manual(values=1:length(new_plotDF$Study))+
   labs(x="Dimension 1", y="Dimension 2")+
@@ -642,7 +551,7 @@ MDSplot_joinedSamples <- new_plotDF %>%
 
 
 # save the MDS plot as pdf:
-pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples551.pdf", 
+pdf(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples408.pdf", 
     width = 13, height = 7)
 
 theme_set(theme_bw())
@@ -650,7 +559,7 @@ MDSplot_joinedSamples
 dev.off()
 
 # save as tiff
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples551.tiff", 
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/MDSplot-noNormalise_joinedGEOsamples408.tiff", 
      width = 20,height = 15, units="cm",  res = 300)
 
 theme_set(theme_bw())

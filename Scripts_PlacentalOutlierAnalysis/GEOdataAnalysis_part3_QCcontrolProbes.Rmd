@@ -297,10 +297,8 @@ PCAplotOtherControlTissue <- new_plotDF %>%
   # scale_color_brewer(palette = "Set1")
   scale_color_manual(values = namedPal2)+
   # scale_shape_manual(values=1:length(new_plotDF$Tissue))+
-  labs(x="Dimension 1", y="Dimension 2")+
+  labs(x="PC 1", y="PC 2")+
   theme(text = element_text(size=15))
-  labs(x="Dimension 1", y="Dimension 2")+
-  theme(text = element_text(size=20))
 # axis.text.x = element_text(angle=90, hjust=1)) 
   
 PCAplotOtherControlTissue
@@ -308,6 +306,36 @@ PCAplotOtherControlTissue
 saveRDS(PCAplotOtherControlTissue, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCAplotAllControlTissue.rds")
 
 ```
+
+
+# 4. SVD for all PCs based on array control probes
+```{r}
+
+Mall <- Control408_M$JoinAllControl
+table(colnames(Mall) %in% GEO_phenotypes$Sample_name)
+
+Matched_pd <- GEO_phenotypes[match(colnames(Mall), GEO_phenotypes$Sample_name),]
+
+pd <- Matched_pd[, c("Sample_name", "Sample","Trimester", "Fetal_Sex", "ArrayType", "Study")]
+
+# pd$ControlPCA1 <- Control408_M$PCA_control$ind$coord[,1]
+# pd$ControlPCA2 <- Control408_M$PCA_control$ind$coord[,2]
+# pd$ControlPCA3 <- Control408_M$PCA_control$ind$coord[,3]
+
+# chage to right class for each column
+# cols = c(7:9)
+# pd[,cols] <-  lapply(pd[,cols], function(x){as.numeric(x)})
+
+cols2 = c(1:6)
+pd[,cols2] <-  lapply(pd[,cols2], function(x){as.character(x)})
+
+# SVD plots_all samples
+
+champ.SVD(beta = Mall, pd = pd, resultsDir = "/home/qianhui/DNAme/Process_decidual/figures/MPlot_allM_contorlSVD")
+
+
+```
+
 
 
 
