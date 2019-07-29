@@ -5,9 +5,8 @@ date: "29/11/2018"
 output: html_document
 ---
 
-This document is mainly for part5 of the GEO data set analysis, that is the normalisation and batch correction step.
+This document is mainly for part5 of the GEO data set analysis, that is the normalisation step.
 
-Cord blood only have one sample.
 
 ```{r setup, include=FALSE}
 
@@ -64,11 +63,7 @@ annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC
 
 There are many tissue types for normal tissue samples around placenta, such as cord blood, chorionic plate and so on. I used modified BMIQ method to normalise different tissue separately. 
 
-
-** When I used GSE74738 as gold standard, the batches were not corrected very well; **
-** Then I try to use GSE75248 as gold standard because this dataset have 174 placental samples which is the biggest dataset for placenta sampels. However, the result of this calibration is even worse than using GSE74738 as gold standard**
-
-There are 9 tissue types (we choose tissue types located near placenta) in total from GEO.
+There are 6 tissue types (we choose tissue types located near placenta) in total from GEO.
 
 ## A) Function for and normalisation using BMIQ_Horvath.R
 
@@ -156,75 +151,7 @@ registerDoParallel(cores = 10)
 
 # 3. MDS plot using all data
 
-## A) plot 9 separate plots for 9 different tissue types.
-
-### Function `plotMDSFUN`
-
-**Tissue argument in `plotMDSFUN` function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord, Umbilical cord blood.**
-
-```{r plotMDSFUN}
-# phenoData: GEO_phenotypes, meta data for all samples
-# Array: "450k" or "EPIC"
-
-plotMDSFUN <- function(Normal_betaNorm, Tissue, PhenoData, ...){
-  registerDoParallel(cores = 10)
-
-  # get meta data
-  GEO_phenotypes_Tissue <- PhenoData %>% 
-  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$")))
-  
-  # then get beta values for each tissue type
-  Normal_betaNorm_forPlot <- Normal_betaNorm[,colnames(Normal_betaNorm)%in%GEO_phenotypes_Tissue$Sample_name, drop=FALSE]
-  
-  # plotMDS plots
-  if(all(table(GEO_phenotypes_Tissue$Sample_name==colnames(Normal_betaNorm_forPlot)))){
-      label <- GEO_phenotypes_Tissue$Trimester
-  }else{
-    print("Rownames of beta matrix were not matched with phenoData$Sample_name")
-  }
-
-  if(ncol(Normal_betaNorm_forPlot)>=3){
-  par(mfrow=c(1,1), ...)
-  plotMDS(Normal_betaNorm_forPlot, top=nrow(Normal_betaNorm_forPlot), 
-          main=Tissue, labels= label, gene.selection="common") 
-  }
-  # labels= label, col= pal[factor(label)],
-
-  # plot density plot anagin with other 96 samples 
-  par(mfrow=c(1,1), cex=0.8, ...)
-  densityPlot(Normal_betaNorm_forPlot, sampGroups = label, 
-              main=Tissue, xlab = "Normalised Beta values")
-
-}# end function
-
-```
-
-
-### Use function `plotMDSFUN`, plot 9 separate plots for 9 different tissue types.
-
-```{r UseplotMDSFUN}
-
-TissueBMvalInfo <- tibble(
-  TissueTypes = c("Placenta", "Amnion", "Chorion", "Decidua",
-                "Maternal whole blood",
-                # "placental mesenchyme", 
-                # "placental trophoblast", "umbilical cord", 
-                "Umbilical cord blood")
-)
-
-
-# use plotMDSFUN function
-for(i in TissueBMvalInfo$TissueTypes){
-  
-  plotMDSFUN(Normal_betaNorm = NormBMlist$NormBAll, 
-             Tissue = i, 
-             PhenoData = NormBMlist$phenoDataAll)
-}
-
-```
-
-
-## B) plot all values (408 samples) in one MDS plot
+## A) plot all values (408 samples) in one MDS plot
 
 ### `plotAll` function
 ```{r joinAllandPlotAll}
@@ -261,11 +188,11 @@ plotAll <- function(BMvalue, GEO_phenotypes_joinedSamples){
 ### use `plotAll` function
 ```{r USEplotAll}
 
-MDSnormCali408_Beta <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$Beta,
-                           GEO_phenotypes_joinedSamples = normCali_BMof9TissueTypes_CaliTogether$BetaPhenoData)
+MDSnormCali408_Beta <- plotAll(BMvalue = NormBMlist$NormBAll,
+                           GEO_phenotypes_joinedSamples = NormBMlist$phenoDataAll)
 
-MDSnormCali408_M <- plotAll(BMvalue = normCali_BMof9TissueTypes_CaliTogether$M, 
-                        GEO_phenotypes_joinedSamples = normCali_BMof9TissueTypes_CaliTogether$BetaPhenoData)
+MDSnormCali408_M <- plotAll(BMvalue = NormBMlist$NormMAll, 
+                        GEO_phenotypes_joinedSamples = NormBMlist$phenoDataAll)
 
 
 save(MDSnormCali408_Beta, MDSnormCali408_M,
