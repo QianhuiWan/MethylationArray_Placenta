@@ -7,7 +7,7 @@ output: html_document
 
 This document is mainly for part3 of the GEO data set analysis, that is the quality control of data sets from different tissue types.
 
-I did PCA on control porbes, so we can see whether there are bach effects between different studies, but within same type of tissue.
+I did PCA on control porbes, so we can see whether there are bach effects between different studies. But notice the intensity of control probes were not preprocessed since in preprocess methods, control probes were filtered out automaticly.
 
 
 ```{r setup, include=FALSE}
@@ -50,15 +50,6 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDec
 
 #GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood, 
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
-
-#GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
-# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
-
-#GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
-# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
-
-#GEO_RGset_450k_UC, GEO_phenoData_450k_UC
-# load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
 
 #GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
