@@ -45,10 +45,10 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEOphenoDataAll.RData
 #GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta, GEO_RGset_EPIC_normalPlacenta, GEO_phenoData_EPIC_normalPlacenta
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
 
-#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion, GEO_RGset_EPIC_Amnion, GEO_phenoData_EPIC_Amnion
+#GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
 
-#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion,GEO_RGset_EPIC_Chorion, GEO_phenoData_EPIC_Chorion
+#GEO_RGset_450k_Chorion, GEO_phenoData_450k_Chorion
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalChorion.RData")
 
 #GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua, GEO_RGset_EPIC_Decidua, GEO_phenoData_EPIC_Decidua, 
@@ -56,15 +56,6 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalDec
 
 #GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood, 
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalMaternalBlood.RData")
-
-#GEO_RGset_450k_mesenchyme, GEO_phenoData_450k_mesenchyme
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalMesenchyme.RData")
-
-#GEO_RGset_450k_trophoblast, GEO_phenoData_450k_trophoblast
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacentalTrophoblast.RData")
-
-#GEO_RGset_450k_UC, GEO_phenoData_450k_UC
-load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCord.RData")
 
 #GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
@@ -142,12 +133,11 @@ CheckFetalSex <- function(RGsetChara){
 ```{r CheckFetalSexforAllTissues}
 
 TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
-                      "GEO_RGset_450k_Amnion", "GEO_RGset_EPIC_Amnion",
-                      "GEO_RGset_450k_Chorion", "GEO_RGset_EPIC_Chorion",
+                      "GEO_RGset_450k_Amnion",
+                      "GEO_RGset_450k_Chorion", 
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_MaternalBlood", "GEO_RGset_450k_mesenchyme",
-                      "GEO_RGset_450k_trophoblast", 
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
+                      "GEO_RGset_450k_MaternalBlood", 
+                      "GEO_RGset_450k_UCB"
                       )
 
 
@@ -160,17 +150,16 @@ for(i in TissueRGsetNames){
 }
 
 # save all phenoData with predicted fetal sex infotmation
-save(GEO_phenoData_450k_normalPlacenta_PreFS, GEO_phenoData_EPIC_normalPlacenta_PreFS,
-     GEO_phenoData_450k_Amnion_PreFS, GEO_phenoData_EPIC_Amnion_PreFS,
-     GEO_phenoData_450k_Chorion_PreFS, GEO_phenoData_EPIC_Chorion_PreFS,
+
+GEO_phenotypes_addPredictedSex <- rbind(GEO_phenoData_450k_normalPlacenta_PreFS, GEO_phenoData_EPIC_normalPlacenta_PreFS,
+     GEO_phenoData_450k_Amnion_PreFS,
+     GEO_phenoData_450k_Chorion_PreFS, 
      GEO_phenoData_450k_Decidua_PreFS, GEO_phenoData_EPIC_Decidua_PreFS,
      GEO_phenoData_450k_MaternalBlood_PreFS, 
-     GEO_phenoData_450k_mesenchyme_PreFS,
-     GEO_phenoData_450k_trophoblast_PreFS, 
-     GEO_phenoData_450k_UC_PreFS, 
-     GEO_phenoData_450k_UCB_PreFS,
-  file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allPhenoData_addPredictedFetalSex.RData"
-)
+     GEO_phenoData_450k_UCB_PreFS)
+
+saveRDS(GEO_phenotypes_addPredictedSex,
+  file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addPredictedSex.rds")
 
 ```
 
@@ -222,6 +211,28 @@ abline(h=-4,col="red")
 rm(EpicRGset, meth, betaRaw, Mraw, Mraw_v1)
 
 }
+
+```
+
+### use `CheckGenotype`
+```{r CheckGenotypeforAllTissues}
+
+TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
+                      "GEO_RGset_450k_Amnion",
+                      "GEO_RGset_450k_Chorion", 
+                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
+                      "GEO_RGset_450k_MaternalBlood", 
+                      "GEO_RGset_450k_UCB"
+                      )
+
+
+for(i in TissueRGsetNames){
+    
+  CheckGenotype(RGsetChara = i)
+
+}
+
+
 
 ```
 
