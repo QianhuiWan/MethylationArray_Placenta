@@ -5,9 +5,11 @@ date: "21/11/2018"
 output: html_document
 ---
 
-This document is mainly for part4 of the GEO data set analysis, that is the quality control (check fetal sex & genotypes) of data sets from different tissue types.
+This document is mainly for part5 of the GEO data set analysis, that is the quality control (check fetal sex & genotypes) of data sets from different tissue types. 
 
 I used methods from `ewastools` package to identify samples with fetal sex misslabelled (check fetal sex), and also check the homogeneity of genotypes (using SNP probes to check genotype) for each sample. 
+
+Fetal sex is estimated based on intensities from X/Y chromosomes. 
 
 The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
 
