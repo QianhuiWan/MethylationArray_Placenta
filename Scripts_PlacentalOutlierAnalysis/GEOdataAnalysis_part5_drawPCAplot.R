@@ -19,6 +19,8 @@ registerDoParallel(cores=10)
 # load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected_residuals.rds")
 ## GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+GEO_phenotypes_addPredictedSex <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addPredictedSex.rds")
 # # PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
 # load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term.RData")
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
@@ -84,14 +86,14 @@ Placenta_Mnorm_T1 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacentaT1$Samp
 # Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
 
 table(PhenodataPlacentaT1$Sample_name==colnames(Placenta_Mnorm_T1))
-# PCA_PlacentaT1_M <- FactoMineR::PCA(base::t(Placenta_Mnorm_T1))
+PCA_PlacentaT1_M <- FactoMineR::PCA(base::t(Placenta_Mnorm_T1))
 
 # Term PCA
 PhenodataPlacentaTerm <- Matched_pd[Matched_pd$Sample%in%"Placenta" &Matched_pd$Trimester%in%"Term",] 
 Placenta_Mnorm_Term <-  Residuals[,colnames(Residuals)%in%PhenodataPlacentaTerm$Sample_name]
 
 table(PhenodataPlacentaTerm$Sample_name==colnames(Placenta_Mnorm_Term))
-# PCA_PlacentaTerm_M <- FactoMineR::PCA(base::t(Placenta_Mnorm_Term))
+PCA_PlacentaTerm_M <- FactoMineR::PCA(base::t(Placenta_Mnorm_Term))
 
 # T1,T2, Term PCA
 # PhenodataNoT3 <- Matched_pd[!(Matched_pd$Trimester%in%"Third"),] 
@@ -290,19 +292,19 @@ PCATermplot <- PCA551_Term %>%
 
 autoplot(pam(PCA551_Term[,1:2],6), frame =TRUE, frame.type='norm')
 
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551_First.tiff",
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551.tiff",
      width = 6, height = 4, units = "cm", res = 300)
 # theme_set(theme_pubr())
 PCAT1plot
 dev.off()
 
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551_First.tiff",
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T2Samples_PCA551.tiff",
      width = 6, height = 4, units = "cm", res = 300)
 # theme_set(theme_pubr())
 PCAT2plot
 dev.off()
 
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TermSamples_PCA551_First.tiff",
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TermSamples_PCA551.tiff",
      width = 20, height = 12, units = "cm", res = 300)
 # theme_set(theme_bw())
 PCATermplot
@@ -349,6 +351,28 @@ PCAallplot <- All551rbind %>%
         legend.title=element_text(size=6),
         legend.text=element_text(size=6),
         legend.position="top")
+
+
+colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
+pal2 <- colorFun(15)
+# namedPal2 <- pal2 %>% `names<-`(unique(PCA551$Study))
+# namedPal2 <- pal2 %>% `names<-`(unique(PCA551$Trimester))
+namedPal2 <- pal2 %>% `names<-`(unique(PCA551$FetalSex))
+
+theme_set(theme_pubr())
+
+PCAplot408 <- PCA551 %>%
+  ggplot(aes(x, y)) + 
+  # geom_point(aes(col = Study), alpha = 1, size = 5)+
+  # geom_point(aes(col=Trimester), alpha = 1, size = 5)+
+  geom_point(aes(col=FetalSex), alpha = 1, size = 5)+
+  # scale_colour_gradient(low = "#56B1F7", high = "#132B43")+
+  # scale_color_brewer(palette = "Set1")
+  scale_color_manual(values = namedPal2)+
+  # scale_shape_manual(values=1:length(new_plotDF$Tissue))+
+  labs(x="PC1 (26.11%)", y="PC2 (10.35%)")+
+  theme(text = element_text(size=15),
+        legend.position="right")
 
 saveRDS(PCA551, file = "/home/qianhui/DNAme/Process_decidual/figures/PCA408df.rds")
 
