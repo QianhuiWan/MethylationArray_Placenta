@@ -5,11 +5,10 @@ date: "21/11/2018"
 output: html_document
 ---
 
-This document is mainly for part4 of the GEO data set analysis, that is the filtering, backgroud correction step.
+This document is mainly for part4 of the GEO data set analysis, including nomalise to control probes, filtering and backgroud correction steps.
 
 The preprocessed beta values and the correspounding M values were stored in a list for each tissue type. 
 The Msets for each tissue types were saved as RData as well.
-There is a tissue type only include one sample, Cord blood only have one sample.
 
 
 ```{r setup, include=FALSE}
@@ -88,21 +87,20 @@ annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC
 
 There are many tissue types for normal tissue samples around placenta, such as cord blood, chorionic plate and so on. We need to normalise different tissue separately.
 
-There are 9 tissue types (we choose tissue types located near placenta) in total from GEO.
+There are 6 tissue types (we choose tissue types located near placenta) in total from GEO.
 
 
 ## A) Function for filtering and bg correction and normalisation
 
 FilterFUN & use FilterFUN
 
-TissueType argument in this function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, 
-placental mesenchyme, placental trophoblast, umbilical cord, Umbilical cord blood.
+TissueType argument in this function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, Umbilical cord blood.
 
 
 ### Function that need to be called in `FilterFUN` to get the number of beads for each probe
-If a probe has less than 3 beads, we need to remove it because the intensity of this probe is not reliable.
+
 ```{r}
-# Tissue: Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental trophoblast, umbilical cord and umbilical cord blood.
+# Tissue: Amnoin, Chorion, Decidua, maternal whole blood, and umbilical cord blood.
 
 getRGset450K_extended <- function(Tissue){
   # base directory
@@ -154,6 +152,9 @@ getRGsetEPIC_extended <- function(Tissue){
 
 
 ### Function `FilterFUN`
+
+If a probe has less than 3 beads, we need to remove it because the intensity of this probe is not reliable.
+
 ```{r FilterFUN}
   # dropSNP, dropXY: FALSE or TRUE; dropSNP=TRUE means drop all probes related with SNPs
   # annotation: ann450k or annEPIC, a DataFrame
@@ -167,8 +168,9 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType,
   
   # get methylset
   if(ncol(RGset) ==1){
-    methylset_raw <- preprocessIllumina(RGset, bg.correct = TRUE, normalize =  "no")
-  
+    # methylset_raw <- preprocessIllumina(RGset, bg.correct = TRUE, normalize =  "no")
+    print("Error: at least 2 samples neeeded for each study")
+    
   } else {
     
     RGset <- normalize.illumina.control(rgSet = RGset, reference = 1)
@@ -246,7 +248,9 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType,
   filteredCpGs <- setdiff(featureNames(methylset_raw), featureNames(meth_PBeadXsnpXY))
 
   if(ncol(RGset) ==1){
-  methylsetNormal_bgCorrENmix <- meth_PBeadXsnpXY
+  # methylsetNormal_bgCorrENmix <- meth_PBeadXsnpXY
+  print("Error: at least 2 samples neeeded for each study")
+
   } else {
   methylsetNormal_bgCorrENmix <- preprocessENmix(RGset, exCpG = filteredCpGs, nCores = 10)
   }
@@ -290,7 +294,7 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, tissueType,
 
 
 
-## B) Use the function FilterFUN to get bg corrected beta and M values for all the samples from 9 kinds of tissues located around placenta during early development.
+## B) Use the function FilterFUN to get **bg corrected beta and M values** for all the samples from 6 kinds of tissues located around placenta during early development.
 
 * filter out failed samples first for GEO_RGset_450k_normalPlacenta[,5] (GSM1617002) and GEO_RGset_450k_MaternalBlood[,8] (GSM1616993).
 
@@ -305,21 +309,13 @@ TissueRGsetInfo <- data_frame(
   TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
                      "GEO_RGset_EPIC_normalPlacenta_ourStudy",
                       "GEO_RGset_450k_Amnion", 
-                      # "GEO_RGset_EPIC_Amnion",
                       "GEO_RGset_450k_Chorion", 
-                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
                       "GEO_RGset_450k_MaternalBlood_v1", 
-                      # "GEO_RGset_450k_mesenchyme",
-                      # "GEO_RGset_450k_trophoblast", 
-                      # "GEO_RGset_450k_UC", 
                       "GEO_RGset_450k_UCB"
                       ),
   TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
                 "Maternal whole blood", 
-                # "placental mesenchyme", 
-                # "placental trophoblast", 
-                # "umbilical cord", 
                 "Umbilical cord blood")
 )
 
@@ -361,7 +357,7 @@ save(
 ```
 
 
-## C) Use the function FilterFUN to get bg corrected Methyl sets for all the samples from 9 kinds of tissues located around placenta during early development.
+## C) Use the function FilterFUN to get bg corrected **Methyl sets** for all the samples from 6 kinds of tissues located around placenta during early development.
 
 ```{r UseFilterFUN2getMset}
 # remove failed samples
@@ -372,19 +368,13 @@ TissueRGsetInfo <- data_frame(
   TissueRGsetNames=c("GEO_RGset_450k_normalPlacenta_v1", "GEO_RGset_EPIC_normalPlacenta",
                      "GEO_RGset_EPIC_normalPlacenta_ourStudy",
                       "GEO_RGset_450k_Amnion", 
-                      # "GEO_RGset_EPIC_Amnion",
                       "GEO_RGset_450k_Chorion", 
-                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
                       "GEO_RGset_450k_MaternalBlood_v1", 
-                      # "GEO_RGset_450k_mesenchyme",
-                      # "GEO_RGset_450k_trophoblast", 
-                      # "GEO_RGset_450k_UC", 
                       "GEO_RGset_450k_UCB"
                       ),
   TissueTypes=c(rep("Placenta", 3), rep("Amnion", 1), rep("Chorion", 1), rep("Decidua",2),
-                "Maternal whole blood", #"placental mesenchyme", 
-                # "placental trophoblast", "umbilical cord", 
+                "Maternal whole blood", 
                 "Umbilical cord blood")
 )
 
@@ -419,12 +409,6 @@ for(i in TissueRGsetInfo$TissueRGsetNames){
 
 
 save(
-     # Mset_450k_normalPlacenta_v1, Mset_EPIC_normalPlacenta,
-     # Mset_450k_Amnion, Mset_EPIC_Amnion,
-     # Mset_450k_Chorion, Mset_EPIC_Chorion,
-     # Mset_450k_Decidua, Mset_EPIC_Decidua,
-     # Mset_450k_MaternalBlood_v1, Mset_450k_mesenchyme,
-     # Mset_450k_trophoblast, Mset_450k_UC, Mset_450k_UCB,
      list=c(paste0("Mset", str_replace(TissueRGsetInfo$TissueRGsetNames, "GEO_RGset",""))),
      file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/MsetsOf9TissueTypes.RData")
 
@@ -444,21 +428,14 @@ BM_EPIC_normalPlacenta.df = BM_EPIC_normalPlacenta$Beta %>% as.data.frame() %>% 
 BM_EPIC_normalPlacenta_ourStudy.df = BM_EPIC_normalPlacenta_ourStudy$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Amnion.df = BM_450k_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-# BM_EPIC_Amnion.df = BM_EPIC_Amnion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Chorion.df = BM_450k_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-# BM_EPIC_Chorion.df = BM_EPIC_Chorion$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_Decidua.df = BM_450k_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 BM_EPIC_Decidua.df = BM_EPIC_Decidua$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_MaternalBlood_v1.df = BM_450k_MaternalBlood_v1$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
-# BM_450k_mesenchyme.df = BM_450k_mesenchyme$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-
-# BM_450k_trophoblast.df = BM_450k_trophoblast$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
-
-# BM_450k_UC.df = BM_450k_UC$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe"),
 
 BM_450k_UCB.df = BM_450k_UCB$Beta %>% as.data.frame() %>% rownames_to_column(var="Probe")
 
@@ -582,5 +559,5 @@ new_plotDF %>%
 
 ```
 
-* There seems to be batch effects between studies, so we need to remove batch effects before doing MDS and other downstream analysis. I will adjusted for batch use Combat or modified BMIQ function by Horvath.
+* There seems to be batch effects between studies, I added the "normalize.illumina.control" step before filtering step to eliminate batch effects.
 
