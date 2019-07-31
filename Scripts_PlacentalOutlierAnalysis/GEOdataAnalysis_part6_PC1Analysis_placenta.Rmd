@@ -1,0 +1,702 @@
+---
+title: "PC1Analysis_use residulas"
+author: "Qianhui"
+date: "12/17/2018"
+output: html_document
+---
+
+This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r package, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(readxl)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(data.table)
+library(limma)
+library(ewastools)
+library(ENmix)
+library(wateRmelon)
+library(WGCNA)
+library(impute)
+library(missMethyl)
+library(FactoMineR)
+library(doParallel)
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+# Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
+
+# annotation needed for using functions
+ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
+annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
+
+# # BM_T1_combat, BM_Term_combat
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/BM_T1Term_CombatCorrected.rds")
+
+# # Residuals, these residuals are Mvalues with control PCA1&2 removed
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected.rds")
+
+# BM list after normalisation, but not corrected for batch across samples
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+
+# # PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
+
+# load(svaCorrect_T1_M, svaCorrect_Term_M, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/svaCorrect_T1Term_M_CombatCorrected.rds")
+
+```
+
+
+# subset placenta data (T1) and use PCA1
+```{r T1}
+registerDoParallel(cores=5)
+
+Residuals <- NormBMlist$NormMAll
+table(colnames(Residuals) %in% GEO_phenotypes$Sample_name)
+
+Matched_pd <- GEO_phenotypes[match(colnames(Residuals), GEO_phenotypes$Sample_name),]
+
+PhenodataPlacenta_T1 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
+
+Placenta_Mnorm_v1_T1 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta_T1$Sample_name]
+Placenta_betaNorm_T1 <- 2^Placenta_Mnorm_v1_T1 / (1+2^Placenta_Mnorm_v1_T1)
+
+# check subseted columns are placental samples or not
+table(PhenodataPlacenta_T1$Sample_name==colnames(Placenta_Mnorm_v1_T1))
+## PCA for normalised M values
+# PCA_Placenta_M_T1 <- FactoMineR::PCA(base::t(Placenta_Mnorm_v1_T1))
+### plot eigen values for each PCA
+# barplot(PCA_Placenta_M_T1$eig[,1], main="Eigenvalues", names.arg=1:nrow(PCA_Placenta_M_T1$eig))
+# plot(PCA_Placenta_M,choix="ind")
+# calculate correlation for each probe for PCA1 and PCA2
+# PCA_Placenta_M_probesSigPCA1and2 <- dimdesc(PCA_Placenta_M, axes =1:2, proba = 0.01)#444312/614861
+
+# saveRDS(PCA_Placenta_M_T1,
+# file = "/home/qianhui/DNAme/figures-draftGA-analysis/PCA_Placenta_M_T1_Bvalues.rds")
+# PCA_Placenta_M_T1 <- readRDS(file = "/home/qianhui/DNAme/figures-draftGA-analysis/PCA_Placenta_M_T1_Bvalues.rds")
+
+PCA_Placenta_M_T1 <- PCA_PlacentaT1_M
+
+DimPval <- dimdesc(PCA_Placenta_M_T1, axes = 1:2)
+
+### plot eigen values for each PCA
+barplot(PCA_Placenta_M$eig[,1],main="Eigenvalues",names.arg=1:nrow(PCA_Placenta_M$eig))
+
+```
+
+
+## the contribution of probes to PC1 (T1 placenta samples)
+```{r ContributionT1Samples}
+# contribution of probs in Dim1
+ProbeContrib.df_T1 <- PCA_Placenta_M_T1$var$contrib %>% as.data.frame() %>% 
+  rownames_to_column(var="Name")
+###### quick look at conribution percentages:
+summary(ProbeContrib.df_T1)
+###### get Dim1 top 2% probes by ordering the contribution percentages of Dim1
+ProbeContrib.df.orderedTop2perc_T1 <- ProbeContrib.df_T1[base::order(-ProbeContrib.df_T1$Dim.1),] %>% 
+   dplyr::slice(1:(0.02*nrow(ProbeContrib.df_T1)))
+saveRDS(ProbeContrib.df_T1, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_ProbeContrib.df_T1_residual.rds")
+saveRDS(ProbeContrib.df.orderedTop2perc_T1, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_Dim1_top2perc_forOutlierAnalysis_T1_residual.rds")
+```
+
+
+Calculate beta difference between placenta and other tissue types:
+
+```{r}
+
+PlacentaT1_names <- PhenodataPlacenta_T1[!(PhenodataPlacenta_T1$Additional_Info%in%"Outlier"),]$Sample_name
+
+OutlierT1_names <- PhenodataPlacenta_T1[PhenodataPlacenta_T1$Additional_Info%in%"Outlier",]$Sample_name
+
+
+Placenta_T1_MeanB <- Placenta_betaNorm_T1[rownames(Placenta_betaNorm_T1)%in%ProbeContrib.df.orderedTop2perc_T1$Name, 
+                                      colnames(Placenta_betaNorm_T1)%in%PlacentaT1_names] %>% 
+  rowMeans()
+
+Outlier_T1_MeanB <- Placenta_betaNorm_T1[rownames(Placenta_betaNorm_T1)%in%ProbeContrib.df.orderedTop2perc_T1$Name, 
+                                      colnames(Placenta_betaNorm_T1)%in%OutlierT1_names] %>% 
+  rowMeans()
+  
+
+table(Outlier_T1_MeanB-Placenta_T1_MeanB >= 0.2)
+
+
+```
+
+
+GO analysis
+```{r}
+
+Dim1_top2perc_T1 <- ProbeContrib.df.orderedTop2perc_T1$Name
+goMeth_Dim1_top2perc_T1 <- gometh(sig.cpg = Dim1_top2perc_T1,
+                           all.cpg = rownames(Placenta_Mnorm_v1_T1),
+                           collection = "GO", array.type = "450K", prior.prob = TRUE, ann=ann450k)
+goMeth_Dim1_top2perc_T1[goMeth_Dim1_top2perc_T1$FDR<0.05,] %>% dim()
+topGO(goMeth_Dim1_top2perc_T1, number = 10)
+
+# plot Top GO terms
+## con30
+top2perc_GO_T1 <- topGO(goMeth_Dim1_top2perc_T1, number = 20) %>% rownames_to_column(var="GO_ID")
+top2perc_GO_T1$Terms <- factor(top2perc_GO_T1$Term, levels = rev(top2perc_GO_T1$Term))
+theme_set(theme_bw())
+top2perc_GOPlot_T1 <- ggplot(top2perc_GO_T1, aes(x= Terms, y= -log10(FDR))) + #fill=Ont
+  geom_bar(stat='identity')+ #"midnightblue"
+  # scale_fill_hue()+
+  coord_flip()+
+  geom_hline(yintercept = -log10(0.05), colour="red")+
+  labs(x="", y="-log10(FDR)")+ #,fill="GO categories"
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_text(size=9, colour ="black"),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        text = element_text(size=9, colour ="black"))
+top2perc_GOPlot_T1
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_top2perc_GOPlot_ForOutlier_T1_residual.tiff",
+    width = 20, height = 12, units = "cm", res = 300)
+top2perc_GOPlot_T1
+dev.off()
+
+## plot box plot for beta values of Dim1_top2perc porbes
+## manipulate data frames
+
+PhenodataPlacenta_T1$Outlier <- factor(ifelse(PhenodataPlacenta_T1$Additional_Info%in%"Outlier", 
+                                              "Outlier", "Standard"))
+# PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M, we need PCA_Placenta_M
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
+
+CutOffRight <- quantile(PCA_Placenta_M$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_Placenta_M$ind$coord[, 1])
+CutOffLeft <- quantile(PCA_Placenta_M$ind$coord[, 1], 0.25)- 1.5*IQR(PCA_Placenta_M$ind$coord[, 1])
+
+CutOffRightNames <- PCA_Placenta_M$ind$coord[, 1][PCA_Placenta_M$ind$coord[, 1]>CutOffRight] %>% names
+CutOffLeftNames <- PCA_Placenta_M$ind$coord[, 1][PCA_Placenta_M$ind$coord[, 1]<CutOffLeft] %>% names
+
+PhenodataPlacenta_T1$OutlierMore <- factor(
+  ifelse(PhenodataPlacenta_T1$Additional_Info%in%"Outlier", "ImpureOutlier",
+         ifelse(PhenodataPlacenta_T1$Sample_name%in%CutOffRightNames, "PureOutlierRight", 
+                ifelse(PhenodataPlacenta_T1$Sample_name%in%CutOffLeftNames, "PureOutlierLeft", "PurePlacenta"))))
+
+phenoDataPlacenta.df_T1 <- PhenodataPlacenta_T1 %>% as.data.frame(stringsAsFactors=FALSE) %>%
+  dplyr::select(c("Sample_name", "Outlier", "OutlierMore"))
+
+
+placenta_beta_dim1Top2perc_T1 <- Placenta_betaNorm_T1[rownames(Placenta_betaNorm_T1)%in%Dim1_top2perc_T1,]
+placenta_beta_dim1Top2perc.df_T1 <- placenta_beta_dim1Top2perc_T1 %>% 
+  as.data.frame() %>% rownames_to_column(var="Name") %>% melt(id.var="Name") %>% 
+  `colnames<-`(c("Name", "Sample_name", "value")) %>% 
+  left_join(phenoDataPlacenta.df_T1, by="Sample_name")
+
+# plot each outleir
+outlierSampNamesT1 <- placenta_beta_dim1Top2perc.df_T1[placenta_beta_dim1Top2perc.df_T1$Outlier%in%"Outlier",]$Sample_name %>% unique()
+
+T1outliers <- placenta_beta_dim1Top2perc.df_T1[placenta_beta_dim1Top2perc.df_T1$Sample_name%in%outlierSampNamesT1,]
+T1outliers %>% ggplot(aes(x=Sample_name, y=value))+geom_boxplot()
+
+# plot boxplot
+outlierDim1Plot_T1 <- placenta_beta_dim1Top2perc.df_T1 %>% 
+  ggplot(aes(x=Outlier, y=value))+
+  geom_boxplot()+
+  scale_x_discrete(labels=c("Outlier"="Impure", "Standard"="Other Samples"))+
+  labs(x="", y="Beta values")+
+  theme(axis.text.y = element_text(size=12, colour ="black"),
+        axis.text.x = element_text(size=12, colour ="black"),
+        axis.title=element_text(size=12, colour ="black"),#,face="bold"
+        text = element_text(size=12, colour ="black"))
+
+outlierDim1Plot_T1
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top2percProbePlot_ForOutlier_T1_residual.tiff",
+     width = 20, height = 12, units = "cm", res = 300)
+theme_set(theme_bw())
+outlierDim1Plot_T1
+dev.off()
+
+saveRDS(placenta_beta_dim1Top2perc.df_T1, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T1.rds")
+
+```
+
+
+# subset placenta data (T2) and use PCA1
+```{r T2}
+
+registerDoParallel(cores=5)
+
+# Residuals <- NormBMlist$NormMAll
+table(colnames(Residuals) %in% GEO_phenotypes$Sample_name)
+
+Matched_pd <- GEO_phenotypes[match(colnames(Residuals), GEO_phenotypes$Sample_name),]
+
+PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
+
+Placenta_Mnorm_v1_T2 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta_T2$Sample_name]
+Placenta_betaNorm_T2 <- 2^Placenta_Mnorm_v1_T2 / (1+2^Placenta_Mnorm_v1_T2)
+
+# check subseted columns are placental samples or not
+table(PhenodataPlacenta_T2$Sample_name==colnames(Placenta_Mnorm_v1_T2))
+## PCA for normalised M values
+# PCA_Placenta_M_T2 <- FactoMineR::PCA(base::t(Placenta_Mnorm_v1_T2))
+### plot eigen values for each PCA
+# barplot(PCA_Placenta_M_T2$eig[,1], main="Eigenvalues", names.arg=1:nrow(PCA_Placenta_M_T2$eig))
+# plot(PCA_Placenta_M,choix="ind")
+# calculate correlation for each probe for PCA1 and PCA2
+# PCA_Placenta_M_probesSigPCA1and2 <- dimdesc(PCA_Placenta_M, axes =1:2, proba = 0.01)#444312/614861
+
+PCA_Placenta_M_T2 <- readRDS(file = "/home/qianhui/DNAme/figures-draftGA-analysis/PCA_Placenta_M_T2_Bvalues.rds")
+
+```
+
+
+## the contribution of probes to PC1 (T2 placenta samples)
+```{r ContributionT2Samples}
+# contribution of probs in Dim1
+ProbeContrib.df_T2 <- PCA_Placenta_M_T2$var$contrib %>% as.data.frame() %>% 
+  rownames_to_column(var="Name")
+###### quick look at conribution percentages:
+summary(ProbeContrib.df_T2)
+###### get Dim1 top 2% probes by ordering the contribution percentages of Dim1
+ProbeContrib.df.orderedTop2perc_T2 <- ProbeContrib.df_T2[base::order(-ProbeContrib.df_T2$Dim.1),] %>% 
+   dplyr::slice(1:(0.02*nrow(ProbeContrib.df_T2)))
+saveRDS(ProbeContrib.df_T2, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_ProbeContrib.df_T2_residual.rds")
+saveRDS(ProbeContrib.df.orderedTop2perc_T2, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_Dim1_top2perc_forOutlierAnalysis_T2_residual.rds")
+
+# GO analysis
+Dim1_top2perc_T2 <- ProbeContrib.df.orderedTop2perc_T2$Name
+goMeth_Dim1_top2perc_T2 <- gometh(sig.cpg = Dim1_top2perc_T2,
+                           all.cpg = rownames(Placenta_Mnorm_v1_T2),
+                           collection = "GO", array.type = "450K", prior.prob = TRUE, ann=ann450k)
+goMeth_Dim1_top2perc_T2[goMeth_Dim1_top2perc_T2$FDR<0.05,] %>% dim()
+topGO(goMeth_Dim1_top2perc_T2, number = 10)
+
+# plot Top GO terms
+## con30
+top2perc_GO_T2 <- topGO(goMeth_Dim1_top2perc_T2, number = 20) %>% rownames_to_column(var="GO_ID")
+top2perc_GO_T2$Terms <- factor(top2perc_GO_T2$Term, levels = rev(top2perc_GO_T2$Term))
+theme_set(theme_bw())
+top2perc_GOPlot_T2 <- ggplot(top2perc_GO_T2, aes(x= Terms, y= -log10(FDR))) + #fill=Ont
+  geom_bar(stat='identity')+ #"midnightblue"
+  # scale_fill_hue()+
+  coord_flip()+
+  geom_hline(yintercept = -log10(0.05), colour="red")+
+  labs(x="", y="-log10(FDR)")+ #,fill="GO categories"
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_text(size=9, colour ="black"),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        text = element_text(size=9, colour ="black"))
+top2perc_GOPlot_T2
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_top2perc_GOPlot_ForOutlier_T2_residual.tiff",
+    width = 20, height = 12, units = "cm", res = 300)
+top2perc_GOPlot_T2
+dev.off()
+
+## plot box plot for beta values of Dim1_top2perc porbes
+## manipulate data frames
+PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Additional_Info%in%"Outlier", 
+                                              "Outlier", "Standard"))
+
+
+PhenodataPlacenta_T2$OutlierMore <- factor(
+  ifelse(PhenodataPlacenta_T2$Additional_Info%in%"Outlier", "ImpureOutlier",
+         ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffRightNames, "PureOutlierRight", 
+                ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffLeftNames, "PureOutlierLeft", "PurePlacenta"))))
+#c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01")
+
+
+phenoDataPlacenta.df_T2 <- PhenodataPlacenta_T2 %>% as.data.frame(stringsAsFactors=FALSE) %>%
+  dplyr::select(c("Sample_name", "Outlier", "OutlierMore"))
+
+placenta_beta_dim1Top2perc_T2 <- Placenta_betaNorm_T2[rownames(Placenta_betaNorm_T2)%in%Dim1_top2perc_T2,]
+placenta_beta_dim1Top2perc.df_T2 <- placenta_beta_dim1Top2perc_T2 %>% 
+  as.data.frame() %>% rownames_to_column(var="Name") %>% melt(id.var="Name") %>% 
+  `colnames<-`(c("Name", "Sample_name", "value")) %>% 
+  left_join(phenoDataPlacenta.df_T2, by="Sample_name")
+
+outlierDim1Plot_T2 <- placenta_beta_dim1Top2perc.df_T2 %>% 
+  ggplot(aes(x=OutlierMore, y=value))+
+  geom_boxplot()+
+  scale_x_discrete(labels=c("Outlier"="Outliers", "Standard"="Other Samples"))+
+  labs(x="", y="Beta values")+
+  theme(axis.text.y = element_text(size=12, colour ="black"),
+        axis.text.x = element_text(size=12, colour ="black"),
+        axis.title=element_text(size=12, colour ="black"),#,face="bold"
+        text = element_text(size=12, colour ="black"))
+
+outlierDim1Plot_T2
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top2percProbePlot_ForOutlier_T2_residual.tiff",
+     width = 20, height = 12, units = "cm", res = 300)
+theme_set(theme_bw())
+outlierDim1Plot_T2
+dev.off()
+
+quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
+quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.25)- 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
+
+saveRDS(placenta_beta_dim1Top2perc.df_T2, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T2.rds")
+
+```
+
+* The results showed that this one outlier from second trimester was not an impure placenta sample, it's just because it was dissected the maternal side of placenta.
+
+
+
+# subset placenta data (Term) and use PCA1
+```{r Term}
+registerDoParallel(cores=5)
+
+Matched_pd <- GEO_phenotypes[match(colnames(Residuals), GEO_phenotypes$Sample_name),]
+
+PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
+
+Placenta_Mnorm_v1 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta$Sample_name]
+Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+
+# check subseted columns are placental samples or not
+table(PhenodataPlacenta$Sample_name==colnames(Placenta_Mnorm_v1))
+## PCA for normalised M values
+# PCA_Placenta_M <- FactoMineR::PCA(base::t(Placenta_Mnorm_v1))
+
+### plot eigen values for each PCA
+# barplot(PCA_Placenta_M$eig[,1], main="Eigenvalues", names.arg=1:nrow(PCA_Placenta_M$eig))
+
+# calculate pvalues for PCA1
+# PCA_Placenta_M_probesSigPCA1and2 <- dimdesc(PCA_Placenta_M, axes =1:2, proba = 0.01)
+
+# table(p.adjust(PCA_Placenta_M_probesSigPCA1and2$Dim.1$quanti[, 2])<0.05)
+
+PCA_Placenta_M_Term <- readRDS(file = "/home/qianhui/DNAme/figures-draftGA-analysis/PCA_Placenta_M_Term_residuals.rds")
+
+
+```
+
+
+## the contribution of probes to PC2 (Term placenta samples). Use Dim2, top1% probes, because Dim2 separate term outliers with other sampels.
+```{r ContributionTermSamples}
+# contribution of probs in Dim1
+ProbeContrib.df <- PCA_Placenta_M_Term$var$contrib %>% as.data.frame() %>% 
+  rownames_to_column(var="Name")
+###### quick look at conribution percentages:
+summary(ProbeContrib.df)
+###### get Dim1 top 1% probes by ordering the contribution percentages of Dim1
+ProbeContrib.df.orderedTop2perc <- ProbeContrib.df[base::order(-ProbeContrib.df$Dim.1),] %>% 
+   dplyr::slice(1:(0.02*nrow(ProbeContrib.df)))
+saveRDS(ProbeContrib.df, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_ProbeContrib.df_Term_residual.rds")
+saveRDS(ProbeContrib.df.orderedTop2perc, 
+        file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_Dim1_top2perc_forOutlierAnalysis_Term_residual.rds")
+
+# go/KEGG for probes consistently low in DNA methylation (may be house keeping genes)====
+## GO
+# Dim1_corSig <- PCA_Placenta_M_probesSigPCA1and2$Dim.1$quanti %>% rownames() #%>% head(5000)
+Dim1_top2perc <- ProbeContrib.df.orderedTop2perc$Name
+goMeth_Dim1_top2perc <- gometh(sig.cpg = Dim1_top2perc,
+                           all.cpg = rownames(Placenta_Mnorm_v1),
+                           collection = "GO", array.type = "450K", prior.prob = TRUE, ann=ann450k)
+goMeth_Dim1_top2perc[goMeth_Dim1_top2perc$FDR<0.05,] %>% dim()
+topGO(goMeth_Dim1_top2perc, number = 10)
+
+
+# saveRDS(KEGG_Dim1_top2perc, 
+# file = "/home/qianhui/DNAme/figures-draftGA-analysis/PlacentaKEGG_Dim1_top2perc_forOutlierAnalysis.rds")
+# plot Top GO terms
+## con30
+top2perc_GO <- topGO(goMeth_Dim1_top2perc, number = 20) %>% rownames_to_column(var="GO_ID")
+top2perc_GO$Terms <- factor(top2perc_GO$Term, levels = rev(top2perc_GO$Term))
+
+theme_set(theme_bw())
+top2perc_GOPlot_Term <- ggplot(top2perc_GO, aes(x= Terms, y= -log10(FDR))) + #,fill=Ont
+  geom_bar(stat='identity')+ #"midnightblue"
+  # scale_fill_hue()+
+  coord_flip()+
+  geom_hline(yintercept = -log10(0.05), colour="red")+
+  labs(x="", y="Enrichment significance (-log10(adusted Pvalue))",fill="GO categories")+
+  labs(x="", y="-log10(FDR)")+ #,fill="GO categories"
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_text(size=9, colour ="black"),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        text = element_text(size=9, colour ="black"))
+
+top2perc_GOPlot_Term
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_top1perc_GOPlot_ForOutlier_Term_residual.tiff",
+    width = 20, height = 12, units = "cm", res = 300)
+top2perc_GOPlot_Term
+dev.off()
+
+## plot box plot for beta values of Dim1_top2perc porbes
+## manipulate data frames
+PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier",
+                                        "Outlier", "Standard"))
+
+PhenodataPlacenta$OutlierMore <- PhenodataPlacenta$OutlierMore <- factor(
+  ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier", "ImpureOutlier",
+         ifelse(PhenodataPlacenta$Sample_name%in%CutOffRightNames, "PureOutlierRight", 
+                ifelse(PhenodataPlacenta$Sample_name%in%CutOffLeftNames, "PureOutlierLeft", "PurePlacenta"))))
+
+
+phenoDataPlacenta.df <- PhenodataPlacenta %>% as.data.frame(stringsAsFactors=FALSE) %>%
+  dplyr::select(c("Sample_name", "Outlier", "OutlierMore"))
+
+placenta_beta_dim1Top2perc <- Placenta_betaNorm[rownames(Placenta_betaNorm)%in%Dim1_top2perc,]
+placenta_beta_dim1Top2perc.df <- placenta_beta_dim1Top2perc %>% 
+  as.data.frame() %>% rownames_to_column(var="Name") %>% melt(id.var="Name") %>% 
+  `colnames<-`(c("Name", "Sample_name", "value")) %>% 
+  left_join(phenoDataPlacenta.df, by="Sample_name")
+
+# plot each outleir (contain GSM1947213_6008581028_R01C01, supposed to be sampled form maternal side of placenta)
+outlierSampNames <- placenta_beta_dim1Top2perc.df[placenta_beta_dim1Top2perc.df$OutlierMore%in%"PureOutlierRight",]$Sample_name %>% unique()
+
+t <- placenta_beta_dim1Top2perc.df[placenta_beta_dim1Top2perc.df$Sample_name%in%outlierSampNames,]
+t %>% ggplot(aes(x=Sample_name, y=value))+geom_boxplot()
+
+
+# plot by impurity
+outlierDim1Plot_Term <- placenta_beta_dim1Top2perc.df %>% 
+  ggplot(aes(x=OutlierMore, y=value))+
+  geom_boxplot()+
+  scale_x_discrete(labels=c("Outlier"="Impure", "Standard"="Pure"))+
+  labs(x="", y="Beta values")+
+  theme(axis.text.y = element_text(size=12, colour ="black"),
+        axis.text.x = element_text(size=12, colour ="black"),
+        axis.title=element_text(size=12, colour ="black"),#,face="bold"
+        text = element_text(size=12, colour ="black"))
+
+outlierDim1Plot_Term
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top1percProbePlot_ForOutlier_Term_residual.tiff",
+     width = 20, height = 12, units = "cm", res = 300)
+theme_set(theme_bw())
+outlierDim1Plot_Term
+dev.off()
+
+saveRDS(placenta_beta_dim1Top2perc.df, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc_df_Term.rds")
+
+```
+
+
+# arrange plots
+
+## combine top2pers_GO to 1 plot
+```{r}
+
+top2perc_GO_T1$Trimester <- rep("First", nrow(top2perc_GO_T1))
+top2perc_GO$Trimester <- rep("Term", nrow(top2perc_GO))
+
+top2perc_GO_T1Term <- rbind(top2perc_GO_T1, top2perc_GO) %>% arrange(FDR)
+top2perc_GO_T1Term$Terms <- factor(top2perc_GO_T1Term$Term, levels = unique(rev(top2perc_GO_T1Term$Term)))
+
+theme_set(theme_bw())
+
+top2perc_GOPlot_T1Term <- ggplot(top2perc_GO_T1Term, aes(x= Terms, y= -log10(FDR))) + #,fill=Ont
+  geom_bar(stat='identity', position=position_dodge())+ #"midnightblue"
+  scale_fill_hue()+
+  coord_flip()+
+  geom_hline(yintercept = -log10(0.05), colour="red")+
+  facet_wrap(~Trimester)+
+  labs(x="", y="-log10(FDR)")+ #,fill="GO categories"
+  scale_y_continuous(breaks = c(0, 10, 20))+
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_text(size=8, colour ="black"),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        text = element_text(size=9, colour ="black"))
+
+
+saveRDS(top2perc_GOPlot_T1Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot_T1Term.rds")
+
+save(top2perc_GOPlot_T1, top2perc_GOPlot_Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot_T1andTerm.RData")
+
+```
+
+
+## combine top 2% boxplot to 1 plot
+```{r}
+#placenta_beta_dim1Top2perc.df_T1
+placenta_beta_dim1Top2perc.df <- placenta_beta_dim1Top2perc.df %>% dplyr::select(-OutlierAdd2)
+placenta_beta_dim1Top2perc.df_T1$Trimester <- rep("First", nrow(placenta_beta_dim1Top2perc.df_T1))
+placenta_beta_dim1Top2perc.df$Trimester <- rep("Term", nrow(placenta_beta_dim1Top2perc.df))
+
+placenta_beta_dim1Top2perc.df_T1Term <- rbind(placenta_beta_dim1Top2perc.df_T1, placenta_beta_dim1Top2perc.df)
+
+# placenta_beta_dim1Top2perc.df_T1Term <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T1Term.rds")
+
+outlierDim1Plot_T1Term <- placenta_beta_dim1Top2perc.df_T1Term %>% 
+  ggplot(aes(x=Outlier, y=value, fill=Outlier))+
+  geom_violin(trim = T)+
+  geom_boxplot(width=0.1, fill="white")+
+  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Impure", "Standard"="Pure"))+
+  scale_x_discrete(labels="")+
+  labs(x="", y="Beta values", fill="Placenta")+
+  facet_wrap(~Trimester, labeller = )+
+  guides(fill=guide_legend(nrow = 2)) +
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x= element_blank(),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        strip.text.x = element_text(size = 9, colour = "black"),
+        text = element_text(size=9, colour ="black"),
+        legend.position="top")
+
+
+saveRDS(outlierDim1Plot_T1Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_T1Term.rds")
+# saveRDS(placenta_beta_dim1Top2perc.df_T1Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T1Term.rds")
+```
+
+# plot to show that outliers that not clustered with other tissue are placenta samples
+```{r}
+
+placenta_beta_dim1Top2perc.df <- placenta_beta_dim1Top2perc.df %>% dplyr::select(-OutlierAdd2)
+placenta_beta_dim1Top2perc.df_T1$Trimester <- rep("First", nrow(placenta_beta_dim1Top2perc.df_T1))
+placenta_beta_dim1Top2perc.df$Trimester <- rep("Term", nrow(placenta_beta_dim1Top2perc.df))
+
+placenta_beta_dim1Top2perc.df_T1Term <- rbind(placenta_beta_dim1Top2perc.df_T1, placenta_beta_dim1Top2perc.df)
+
+# placenta_beta_dim1Top2perc.df_T1Term <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T1Term.rds")
+
+outlierDim1Plot_T1Term <- placenta_beta_dim1Top2perc.df_T1Term %>% 
+  ggplot(aes(x=Outlier, y=value, fill=Outlier))+
+  geom_violin(trim = T)+
+  geom_boxplot(width=0.1, fill="white")+
+  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Impure", "Standard"="Pure"))+
+  scale_x_discrete(labels="")+
+  labs(x="", y="Beta values", fill="Placenta")+
+  facet_wrap(~Trimester, labeller = )+
+  guides(fill=guide_legend(nrow = 2)) +
+  theme(axis.text.y = element_text(size=9, colour ="black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x= element_blank(),
+        axis.title=element_text(size=9, colour ="black"),#,face="bold"
+        strip.text.x = element_text(size = 9, colour = "black"),
+        text = element_text(size=9, colour ="black"),
+        legend.position="top")
+
+saveRDS(outlierDim1Plot_T1Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_T1Term.rds")
+
+```
+
+
+# Figure1
+```{r}
+theme_set(theme_pubr())
+
+# PCAs
+# PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
+
+PCA551plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples.rds")
+PCAT1plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCAT1plot.rds")
+PCAT2plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCAT2plot.rds")
+PCATermplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCATermPlot.rds")
+
+# # use ggarange to put plots together
+# PCAs <- ggarrange(PCA551plot, PCAT1plot, PCAT2plot, PCATermplot, 
+#                   labels = c("A", "B", "C", "D"),
+#                   ncol = 4, nrow = 1, 
+#                   font.label=list(size = 12, color = "black", face = "bold", family = "Arial"),
+#                   legend="top", common.legend = TRUE)
+# 
+# 
+# tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/T1Samples_PCA551_4plots.tiff",
+#      width = 17, height = 8, units = "cm", res = 300)
+# PCAs 
+# dev.off()
+# 
+# saveRDS(PCAs, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408_3plots.rds")
+
+# PCAs <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408_3plots.rds")
+
+# CorBoxplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_Mnorm_T1Term_CorBoxplot.rds")
+# we don't need desity plot in Figure1
+# density551 <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/density551Plot_ggplot.rds")
+
+outlierDim1Plot_T1Term <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_T1Term.rds")
+
+# we don't need OiutlierPerPlot in Figure1
+# OutlierPerPlot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/OutlierPerPlot.rds")
+
+
+# top2perc_GOPlot_T1, top2perc_GOPlot_Term
+# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot_T1andTerm.RData")
+top2perc_GOPlot_T1Term <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot_T1Term.rds")
+
+PCAs <- ggarrange(PCA551plot, PCAT1plot, PCAT2plot, PCATermplot, 
+                  labels = c("A", "B", "C", "D"),
+                  ncol = 4, nrow = 1, 
+                  font.label=list(size = 12, color = "black", face = "bold", family = "Arial"),
+                  legend=FALSE)
+
+# densityCorBoxplots <- ggarrange(density551, OutlierPerPlot, 
+#           labels = c("G", "H"), 
+#           # font.label = list(size = 12, face = "bold", color ="black"),
+#           nrow = 2, 
+#           legend="right")
+
+PC1plots <- ggarrange(outlierDim1Plot_T1Term, top2perc_GOPlot_T1Term, #densityCorBoxplots, 
+          labels = c("E", "F", NULL),
+          font.label = list(size = 12, face = "bold", color ="black"),
+          ncol = 3, widths = c(0.8,2,1.4))
+
+
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure1_v2.tiff",
+     width = 25, height = 17, units = "cm", res = 300)
+theme_set(theme_pubr())
+ggarrange(
+               PCAs,
+               # PCA551plot,PCAT1plot, PCATermplot,
+               PC1plots,
+               # outlierDim1Plot_T1Term, top2perc_GOPlot_T1Term, 
+               # densityCorBoxplots,
+               # labels = c("A", "B", "C", "D", "E", NULL),
+               # ncol = 3, 
+               nrow = 2,
+               heights = c(1.2,2),
+               
+               # widths = c(1,1,1, 1,2,1),
+               font.label = list(size = 12, face = "bold", color ="black")
+               # legend="right",
+               # common.legend = TRUE
+               # layout_matrix = rbind(c(1,2,NA),c(3,3,3), c(4,5,6))
+               )
+dev.off()
+
+
+
+
+# t1<- grid.arrange(density551, CorBoxplot, 
+#                   PCAs, 
+#                   outlierDim1Plot_T1Term, top2perc_GOPlot_T1, top2perc_GOPlot_Term,
+#                   nrow=3, ncol=3,
+#                   heights=c(1,2,1),
+#                   
+#                   layout_matrix = rbind(c(1,2,NA),c(3,3,3), c(4, 5,6)))
+
+```
+
+# suplimentary figure
+```{r}
+
+PCA_Plot_allPlacenta <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCA_Plot_allPlacenta.rds")
+
+
+```
+
+
+
+
