@@ -16,6 +16,7 @@ knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.wid
 # 1. load data and packages
 ```{r package, warning=FALSE, message=FALSE}
 library(tidyverse)
+library(plyranges)
 library(readxl)
 library(minfi)
 library(magrittr)
@@ -26,7 +27,7 @@ library(ewastools)
 library(ENmix)
 library(wateRmelon)
 library(WGCNA)
-library(impute)
+library(BSgenome.Hsapiens.UCSC.hg19)
 library(missMethyl)
 library(FactoMineR)
 library(doParallel)
@@ -60,23 +61,63 @@ CutOffLeftNames <- PCA_Placenta_M$ind$coord[, 1][PCA_Placenta_M$ind$coord[, 1]<C
 # M values and matched phenodata
 registerDoParallel(cores=5)
 
-Residuals <- NormBMlist$NormMAll
-table(colnames(Residuals) %in% GEO_phenotypes$Sample_name)
+table(colnames(NormBMlist$NormMAll) %in% GEO_phenotypes$Sample_name)
 
-Matched_pd <- GEO_phenotypes[match(colnames(Residuals), GEO_phenotypes$Sample_name),]
+Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormMAll), GEO_phenotypes$Sample_name),]
+Matched_pd$Outlier <- ifelse(Matched_pd$Additional_Info%in%"Outlier"|Matched_pd$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard")
+
 
 phenoDataPlacenta <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/phenoDataPlacenta.rds")
+
 #GEO_RGset_EPIC_normalPlacenta_ourStudy, GEO_phenoData_EPIC_normalPlacenta_ourStudy
 load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalPlacenta.RData")
 
 MetadataOurSamples <- phenoDataPlacenta[rownames(phenoDataPlacenta)%in%GEO_phenoData_EPIC_normalPlacenta_ourStudy$Sample_name, ]
 
+# PMDs
+PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
+
+# ICRs
+ICRsGR <- readRDS(file ="/home/qianhui/DNAme/Process_decidual/ICRs/ICRsGR.rds")
+
 ```
 
 
 # the contribution of probes to PC1 (all samples including different tissue types)
-## GO analysis for top 2% probes in PC1
-```{r ContributionT2Samples}
+
+## PCA plot: get p-values for probes contributing to PC1, and plot scree plot
+
+```{r}
+DimPval <- dimdesc(PCA_Placenta_M, axes = 1:2)
+DimPval$Dim.1$quanti[,1] %>% quantile()
+DimPval$Dim.1$quanti[,2] %>% quantile()
+
+ProbeCorAndPval_PC1 <- DimPval$Dim.1$quanti %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="ProbeNames") %>% 
+  `colnames<-`(c("ProbeNames", "CorrelationPC1", "p.valuePC1"))
+
+### plot eigen values for each PCA
+barplot(PCA_Placenta_M$eig[,1],main="Eigenvalues",names.arg=1:nrow(PCA_Placenta_M$eig))
+
+
+# scree plot for PCAs
+eigenvalues <- PCA_Placenta_M$eig[1:10, ]
+barplot(eigenvalues[, 2], names.arg=1:nrow(eigenvalues), 
+       main = "Variances",
+       xlab = "Principal Components",
+       ylab = "Percentage of variances",
+       col ="steelblue")
+# Add connected line segments to the plot
+lines(x = 1:nrow(eigenvalues), eigenvalues[, 2], 
+      type="b", pch=19, col = "red")
+
+```
+
+
+## get top 2% probes in PC1
+```{r Contribution2PC1}
+
 # contribution of probs in Dim1
 ProbeContrib.df <- PCA_Placenta_M$var$contrib %>% as.data.frame() %>% 
   rownames_to_column(var="Name")
@@ -84,50 +125,96 @@ ProbeContrib.df <- PCA_Placenta_M$var$contrib %>% as.data.frame() %>%
 summary(ProbeContrib.df)
 ###### get Dim1 top 2% probes by ordering the contribution percentages of Dim1
 ProbeContrib.df.orderedTop2perc <- ProbeContrib.df[base::order(-ProbeContrib.df$Dim.1),] %>% 
-   dplyr::slice(1:(0.02*nrow(ProbeContrib.df)))
-# saveRDS(ProbeContrib.df_T2, 
-#         file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_ProbeContrib.df_T2_residual.rds")
-# saveRDS(ProbeContrib.df.orderedTop2perc_T2, 
-#         file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/Placenta_Dim1_top2perc_forOutlierAnalysis_T2_residual.rds")
+   dplyr::slice(1:(0.02*nrow(ProbeContrib.df))) %>% 
+   dplyr::left_join(ProbeCorAndPval_PC1, c("Name"="ProbeNames"))
 
-# GO analysis
-Dim1_top2perc <- ProbeContrib.df.orderedTop2perc$Name
-goMeth_Dim1_top2perc <- gometh(sig.cpg = Dim1_top2perc,
-                           all.cpg = rownames(Residuals),
-                           collection = "GO", array.type = "450K", prior.prob = TRUE, ann=ann450k)
-goMeth_Dim1_top2perc[goMeth_Dim1_top2perc$FDR<0.05,] %>% dim()
-topGO(goMeth_Dim1_top2perc, number = 10)
+ProbeContrib.df.orderedTop2perc$CorrelationPC1 %>% quantile()
 
-# plot GO terms
-top2perc_GO <- topGO(goMeth_Dim1_top2perc, number = 20) %>% rownames_to_column(var="GO_ID") %>% arrange(FDR)
-
-top2perc_GO$Terms <- factor(top2perc_GO$Term, levels = unique(rev(top2perc_GO$Term)))
-
-theme_set(theme_pubr())
-
-top2perc_GOPlot <- ggplot(top2perc_GO, aes(x= Terms, y= -log10(FDR))) + #,fill=Ont
-  geom_bar(stat='identity', position=position_dodge())+ #"midnightblue"
-  scale_fill_hue()+
-  coord_flip()+
-  geom_hline(yintercept = -log10(0.05), colour="red")+
-  labs(x="", y="-log10(FDR)")+ #,fill="GO categories"
-  scale_y_continuous(breaks = c(0, 10, 20))+
-  theme(axis.text.y = element_text(size=9, colour ="black"),
-        axis.text.x = element_text(size=8, colour ="black"),
-        axis.title=element_text(size=9, colour ="black"),#,face="bold"
-        text = element_text(size=9, colour ="black"))
-
-top2perc_GOPlot
-saveRDS(top2perc_GOPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot.rds")
+ProbeContrib.df.orderedTop2perc$p.valuePC1 %>% quantile()
 
 ```
+
+
+Calculate beta difference between placenta and mixed placenta sampels:
+
+```{r}
+
+Matched_pd_placenta <- Matched_pd[Matched_pd$Sample%in%"Placenta",]
+
+NormBAll_placenta <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%Matched_pd_placenta$Sample_name]
+
+Placenta_names <- Matched_pd_placenta[Matched_pd_placenta$Outlier%in%"Standard",]$Sample_name
+
+Outlier_names <- Matched_pd_placenta[Matched_pd_placenta$Outlier%in%"Outlier",]$Sample_name
+
+
+Placenta_MeanB <- NormBAll_placenta[rownames(NormBAll_placenta)%in%ProbeContrib.df.orderedTop2perc$Name, 
+                                    colnames(NormBAll_placenta)%in%Placenta_names] %>% 
+  rowMeans()
+
+Outlier_MeanB <- NormBAll_placenta[rownames(NormBAll_placenta)%in%ProbeContrib.df.orderedTop2perc$Name, 
+                                      colnames(NormBAll_placenta)%in%Outlier_names] %>% 
+  rowMeans()
+  
+
+table(abs(Outlier_MeanB-Placenta_MeanB) >= 0.2)
+
+table(Outlier_MeanB-Placenta_MeanB >= 0.2)
+
+```
+
+Are these top 2% probes from PC1 located in PMDs?
+
+How many probes in PMDs and ICRs:
+```{r}
+## Get probe ranges and select probe not related with islands
+Gset_placenta <- makeGenomicRatioSetFromMatrix(NormBMlist$NormBAll, array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe <- Gset_placenta@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe <- base::match(GRangeProbe$Name, rownames(NormBMlist$NormBAll))
+values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(NormBMlist$NormBAll[matchWithGRprobe,], check.names = F)) 
+
+### add seqinfo
+bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+plyranges::find_overlaps(PMDs_hg19, GRangeProbe[,1:3])$Name %>% length() 
+
+plyranges::find_overlaps(ICRsGR, GRangeProbe[,1:3])$Name %>% length() 
+
+```
+* In total, there were 44353 probes from 300k common probes (408 samples)
+
+How many top 2% probes in PMDs and ICRs:
+```{r}
+Top2GRangeProbe <- GRangeProbe[,1:3] %>% plyranges::filter(Name%in%ProbeContrib.df.orderedTop2perc$Name)
+
+plyranges::find_overlaps(PMDs_hg19, Top2GRangeProbe)$Name %>% length() 
+
+plyranges::find_overlaps(ICRsGR, Top2GRangeProbe)$Name %>% length() 
+
+```
+* There are 1971 probes from top 2 percent probes (6016) from PC1 that located in PMDs.
+
 
 # T1 placenta 
 ```{r T1}
 
 PhenodataPlacenta_T1 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
 
-Placenta_Mnorm_v1_T1 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta_T1$Sample_name]
+Placenta_Mnorm_v1_T1 <-  NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_T1$Sample_name]
 Placenta_betaNorm_T1 <- 2^Placenta_Mnorm_v1_T1 / (1+2^Placenta_Mnorm_v1_T1)
 
 ```
@@ -146,19 +233,18 @@ PhenodataPlacenta_T1_addOutlier <- PhenodataPlacenta_T1 %>% left_join(OutlierT1,
 
 PhenodataPlacenta_T1_addOutlier$Outlier_T1[is.na(PhenodataPlacenta_T1_addOutlier$Outlier_T1)] <- "Pure"
 
-# PhenodataPlacenta_T2$OutlierMore <- factor(
-#   ifelse(PhenodataPlacenta_T2$Additional_Info%in%"Outlier", "ImpureOutlier",
-#          ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffRightNames, "PureOutlierRight", 
-#                 ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffLeftNames, "PureOutlierLeft", "PurePlacenta"))))
-
-#c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01")
-
 phenoDataPlacenta.df_T1 <- PhenodataPlacenta_T1_addOutlier %>% as.data.frame(stringsAsFactors=FALSE) %>%
   dplyr::select(c("Sample_name", "Outlier_T1"))
 
-placenta_beta_dim1Top2perc_T1 <- Placenta_betaNorm_T1[rownames(Placenta_betaNorm_T1)%in%Dim1_top2perc,]
-placenta_beta_dim1Top2perc.df_T1 <- placenta_beta_dim1Top2perc_T1 %>% 
-  as.data.frame() %>% rownames_to_column(var="Name") %>% melt(id.var="Name") %>% 
+```
+
+# plot box plot for mixed and pure placenta samples:
+```{r}
+
+placenta_beta_dim1Top2perc.df_T1 <- Placenta_betaNorm_T1[rownames(Placenta_betaNorm_T1)%in%ProbeContrib.df.orderedTop2perc$Name,] %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var="Name") %>% 
+  melt(id.var="Name") %>% 
   `colnames<-`(c("Name", "Sample_name", "value")) %>% 
   left_join(phenoDataPlacenta.df_T1, by="Sample_name")
 
@@ -196,10 +282,11 @@ saveRDS(placenta_beta_dim1Top2perc.df_T1, file = "/home/qianhui/DNAme/Process_de
 
 PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
 
-Placenta_Mnorm_v1_T2 <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta_T2$Sample_name]
+Placenta_Mnorm_v1_T2 <-  NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_T2$Sample_name]
 Placenta_betaNorm_T2 <- 2^Placenta_Mnorm_v1_T2 / (1+2^Placenta_Mnorm_v1_T2)
 
 ```
+
 
 # T2 outlier and pure samples 
 ```{r}
@@ -212,7 +299,7 @@ PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Sample_name%i
 phenoDataPlacenta.df_T2 <- PhenodataPlacenta_T2 %>% as.data.frame(stringsAsFactors=FALSE) %>%
   dplyr::select(c("Sample_name", "Outlier"))
 
-placenta_beta_dim1Top2perc_T2 <- Placenta_betaNorm_T2[rownames(Placenta_betaNorm_T2)%in%Dim1_top2perc,]
+placenta_beta_dim1Top2perc_T2 <- Placenta_betaNorm_T2[rownames(Placenta_betaNorm_T2)%in%ProbeContrib.df.orderedTop2perc$Name,]
 placenta_beta_dim1Top2perc.df_T2 <- placenta_beta_dim1Top2perc_T2 %>% 
   as.data.frame() %>% rownames_to_column(var="Name") %>% melt(id.var="Name") %>% 
   `colnames<-`(c("Name", "Sample_name", "value")) %>% 
@@ -247,14 +334,12 @@ saveRDS(placenta_beta_dim1Top2perc.df_T2, file = "/home/qianhui/DNAme/Process_de
 
 * The results showed that this one outlier from second trimester could be an impure placenta sample.
 
-
-
 # Term placenta 
 ```{r T1}
 
 PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
 
-Placenta_Mnorm_v1_Term <-  Residuals[,colnames(Residuals)%in%PhenodataPlacenta_Term$Sample_name]
+Placenta_Mnorm_v1_Term <-  NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_Term$Sample_name]
 Placenta_betaNorm_Term <- 2^Placenta_Mnorm_v1_Term / (1+2^Placenta_Mnorm_v1_Term)
 
 ```
