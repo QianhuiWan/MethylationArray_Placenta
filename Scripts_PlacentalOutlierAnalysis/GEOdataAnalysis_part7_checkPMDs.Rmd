@@ -51,7 +51,7 @@ PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg1
 
 # for annotating outliers
 placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all.rds") %>%
-  dplyr::select(Sample_name, Outlier) %>% 
+  dplyr::select(Sample_name, Outlier.x) %>% 
   unique() %>% 
   `colnames<-`(c("Sample_name","Outlier3"))
 
@@ -307,7 +307,7 @@ minbase <- start - (0.0001*(end-start))
 maxbase <- end + (0.0001*(end-start))
 
 #### ideogram Track:
-iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, name = "", 
+iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, #name = "", 
                         from=minbase, to=maxbase,
                         lwd=1,
                         fontsize=9, fontcolor="black")
@@ -579,19 +579,11 @@ AllPMDsMeanViolinPlot
 
 saveRDS(AllPMDsMeanViolinPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/AllPMDsMeanViolinPlot.rds")
 
+```
 
+
+```{r}
 # statistic test
-
-# library("ggpubr")
-# ggline(ProbesBetaMeansInPMD_long_v2, x = "Outlier", y = "MeanBOfPMD", color = "Trimester",
-#        add = c("mean_se"), 
-#        # order = c("First", "Second", "Term"),
-#        ylab = "Beta", xlab = "Outlier", ylim=c(0.4, 0.7))+
-#   # ylim(0.4,0.7)
-#   # scale_y_continuous(breaks=seq(0.4, 0.7, 0.1), limits=c(0.4,0.7))
-#   geom_hline(yintercept = c(0.45,0.65))
-#   # facet_wrap(~Trimester)
-
 
 for(i in c("First", "Second", "Term")){
 wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%in%i, ]$MeanBOfPMD
@@ -600,109 +592,4 @@ wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%
 }
 
 ```
-
-
-# 3. Plot beta values and PMDs (Term trimester samples)
-```{r , eval=FALSE}
-genome <- "hg19"
-
-chrom <- "chr21"
-
-start <- 13000000
-
-end <- 48119895
-
-# add extra space to plot (since plot range should be longer than this DMR)
-minbase <- start - (0.0001*(end-start))
-maxbase <- end + (0.0001*(end-start))
-
-#### ideogram Track:
-iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, name = "", from=minbase, to=maxbase,
-                        fontsize=9, fontcolor="black")
-
-#### Genome Axis Track:
-gTrack <- GenomeAxisTrack(col="black", cex=0.9, name = "", fontcolor="black", add53=T, add35=T,
-                          fontsize=9, col="black")
-
-#### PMD track
-PMDTrack <- AnnotationTrack(range=PMDs_hg19, gensome = genome, chromosome = chrom, 
-                            start = minbase, end = maxbase,
-                            name = "Published PMDs",
-                            id="PMD",
-                            fontcolor.feature="black",
-                            col.title="black",
-                            # cex.title=0.8,
-                            #groupAnnotation=NULL,
-                            background.title="transparent",
-                            showId=FALSE,
-                            showFeatureId=FALSE,
-                            stacking = "dense"
-)
-
-#### create methylation data Track:
-library(RColorBrewer)
-# colorFun <- colorRampPalette(brewer.pal(9,"Blues")[3:9])
-# colorFun <- colorRampPalette(brewer.pal(9,"YlOrRd"))
-colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
-
-methTrack <- DataTrack(
-  range = GRangeProbesForPMDanalysis[,4:345],
-  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
-  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
-  groups=factor(PhenodataPlacenta$Outlier),
-  ylim= c(0, 1.00),
-  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
-  col=brewer.pal(8,"Dark2")[1:2],
-  # type = c("a", "p"), # a: line plot of average
-  type = "smooth", span=1/40, #baseline=0.5, 
-  name = "DNA Methylation\n(beta value)",
-  # background.panel = "black",
-  # legend=FALSE,
-  fontsize.legend=10,
-  fontcolor.legend="black",
-  background.title="transparent",
-  frame=FALSE,
-  col.title="black",
-  col.axis="black",
-  # cex.title=0.8,
-  # cex.axis=0.8,
-  cex.legend = 1
-  )
-
-# tracks to draw
-tracks <- list(iTrack, gTrack, PMDTrack, methTrack)
-
-#### set up relative size for each track:
-sizes <- c(2,2,2,4)
-plotTracks(tracks, 
-           from = minbase-1 , to = maxbase+1, 
-           showTitle=TRUE,
-           add53 = TRUE, add35 = TRUE, 
-           grid=FALSE,
-           # lwd.grid=0.5,
-           # lty.grid=3,
-           sizes = sizes,
-           #showBandId=TRUE,
-           #showId=TRUE,
-           #showFeatureId=TRUE,
-           length(tracks))
-
-tiff(filename = "/home/qianhui/DNAme/Process_decidual/figures/GvizPMDchr21_Termsamples_v1.tiff", 
-     width = 8, height = 6.5, units = "cm", res = 300)
-plotTracks(tracks, 
-           from = minbase-1 , to = maxbase+1, 
-           showTitle=TRUE,
-           add53 = TRUE, add35 = TRUE, 
-           grid=FALSE,
-           # lwd.grid=0.5,
-           # lty.grid=3,
-           sizes = sizes,
-           #showBandId=TRUE,
-           #showId=TRUE,
-           #showFeatureId=TRUE,
-           length(tracks))
-dev.off()
-
-```
-
 
