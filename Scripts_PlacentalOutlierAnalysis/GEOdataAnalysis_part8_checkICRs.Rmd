@@ -86,6 +86,7 @@ genes <- annotateTranscripts(TxDb.Hsapiens.UCSC.hg19.knownGene, "org.Hs.eg.db")
 ICR_matchedGene <- matchGenes(ICRsGR, genes) #, type = "fiveprime"
 mcols(ICRsGR) <- cbind(mcols(ICRsGR), ICR_matchedGene[, c(1, 3:12,14)])
 
+saveRDS(ICRsGR, file ="/home/qianhui/DNAme/Process_decidual/ICRs/ICRsGR.rds")
 ```
 
 
