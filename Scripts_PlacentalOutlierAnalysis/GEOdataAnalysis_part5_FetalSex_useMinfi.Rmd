@@ -184,7 +184,7 @@ GEO_phenotypes_addMinfiPredictedSex %>%
   dplyr::mutate(Outlier = case_when(Sample_name %in% c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01") ~ "Outlier",
                              !(Sample_name %in% c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01")) ~ Outlier1)) %>% 
   dplyr::select(Sample, Sample_name, Trimester, Study, ArrayType, Outlier, X, Y, Sex=Fetal_Sex, predicted_sex, CorrectSexInfo) %>% 
-  dplyr::arrange(desc(CorrectSexInfo)) %>% 
+  dplyr::arrange(CorrectSexInfo) %>% 
   write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addMinfiPredictedSex.csv")
 
 ```
