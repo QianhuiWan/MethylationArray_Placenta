@@ -34,20 +34,26 @@ pal <- brewer.pal(8, "Dark2")
 # GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEOphenoDataAll.RData")
 
+GEO_phenotypes_Filtered <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes410_Filtered.rds")
+
+GEO_phenotypes_Filtered <- GEO_phenotypes_Filtered[!(GEO_phenotypes_Filtered$Sample_name%in%c("GSM1617002_7668610068_R01C01","GSM1616993_7668610068_R06C02")),]
+
 ```
 
 ```{r}
+
 GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
-  # get 450k meta data
-  GEO_phenotypes_EPIC <- GEO_phenotypes_Filtered[GEO_phenotypes_Filtered$ArrayType=='EPIC',]
-  # get 450k, meta data for the tissue
-  GEO_phenotypes_EPIC_Tissue <- GEO_phenotypes_EPIC %>% 
-  filter(str_detect(Sample, pattern=paste0("^", Tissue, "$"))) %>% 
-  filter(str_detect(Disease, pattern="Uncomplicated$"))
-  # get the RGset for this tissue
-  GEO_RGset_EPIC_Tissue <- read.metharray.exp(base = GEO_baseDir, targets = GEO_phenotypes_EPIC_Tissue)
-  # GEO_phenoData_450k_Tissue <- pData(GEO_RGset_450k_Tissue) #chain data & phenotypes together
-  
+
+# get the RGset for all 392 450k samples
+GEO_RGset_450k_Tissue <- read.metharray.exp(base = GEO_baseDir, 
+                                        targets = GEO_phenotypes_Filtered[GEO_phenotypes_Filtered$ArrayType%in%"450K",], 
+                                        extended = TRUE, force = TRUE)
+
+# get the RGset for all 16 EPIC samples
+GEO_RGset_EPIC_Tissue <- read.metharray.exp(base = GEO_baseDir, 
+                                        targets = GEO_phenotypes_Filtered[GEO_phenotypes_Filtered$ArrayType%in%"EPIC",], 
+                                        extended = TRUE, force = TRUE)
+
 ```
 
 # 3. ewastools: check sex and contanmincation of sampels.
@@ -73,11 +79,6 @@ CheckFetalSex <- function(RGsetChara){
   CG.controls <- ctrls$Type %in% c("NORM_C","NORM_G")
   AT.controls <- ctrls$Type %in% c("NORM_A","NORM_T")
   if(ncol(RGset)==1){ # can't use relic if there is only one sample in the group
-      # cg_grn <- ctrl_g[CG.controls] %>% as.matrix()
-      # rownames(cg_grn) = ctrls$ExtendedType[CG.controls]
-      # at_red <- ctrl_r[AT.controls] %>% as.matrix()
-      # rownames(at_red) = ctrls$ExtendedType[AT.controls]
-      # GMethSet <- RGset %>% preprocessRaw() %>% mapToGenome()
     print("Only one sample in this group, can't predict sex")
     }else{
       cg_grn <- ctrl_g[CG.controls,]
@@ -87,37 +88,37 @@ CheckFetalSex <- function(RGsetChara){
       GMethSet <- RGset %>% preprocessRaw() %>% relic(at_red=at_red, cg_grn=cg_grn) %>% mapToGenome()
     }
     
-  
+
   # sex check
   # phenoData to phenoData.dt
   phenoData.dt <- phenoData %>% as.data.frame() %>% rownames_to_column() %>% setDT()
   
-  # add average total beta values for probes on X and Y chr
+  # add predicted sex information to Genomic methyl set
   estSex <- getSex(GMethSet)
-  GMsetEx <- addSex(GMsetEx, sex = estSex)
+  GMethSet <- addSex(GMethSet, sex = estSex)
   
-  # predict fetal sex
-  phenoData.dt$predicted_sex = predict_sex(phenoData.dt$X,phenoData.dt$Y
-                           # which(phenoData.dt$Fetal_Sex%in%'Male'),
-                           # which(phenoData.dt$Fetal_Sex%in%'Female')
-                           )
+  # add predicted fetal sex phenodata
+  phenoData.dt$X <- estSex$xMed
+  phenoData.dt$Y <- estSex$yMed
+  phenoData.dt$predicted_sex <- estSex$predictedSex
 
-  phenoData.dt_v1 <- phenoData.dt %>%
-    mutate(predicted_sex = str_replace_all(predicted_sex, c("m"="Male","f" ="Female")))
-  
-  phenoData.dt_v2 <- setDT(phenoData.dt_v1)
-  
+  phenoData.dt_v2 <- phenoData.dt %>%
+    mutate(predicted_sex = str_replace_all(predicted_sex, c("M"="Male","F" ="Female"))) %>% 
+    setDT()
+
+  # plotSex(GMethSet)
   # plot the X/Y chr intensities
   # it is better to put pch into 3 groups (red color marked the misslabelled samples)
   plot(Y ~ X,data=phenoData.dt_v2,
-       pch=ifelse(phenoData.dt_v2$Fetal_Sex=="Female",1,
-           ifelse(phenoData.dt_v2$Fetal_Sex=="Male", 4,13)),
-       asp=1,xlab="Normalized X chromosome intensities",ylab="Normalized Y chromosome intensities")
+       pch=ifelse(phenoData.dt_v2$Fetal_Sex=="Female",1,4),
+       # asp=1,
+       xlab="X chr, median total intensity (log2)",
+       ylab="Y chr, median total intensity (log2)", 
+       xlim=c(11,15))
   points(Y ~ X,data=phenoData.dt_v2[Fetal_Sex !=predicted_sex],
-         pch=ifelse(phenoData.dt_v2[Fetal_Sex!=predicted_sex]$Fetal_Sex=="Female",1,
-             ifelse(phenoData.dt_v2[Fetal_Sex!=predicted_sex]$Fetal_Sex=="Male",4,13)),
-         col=2)
-  legend("topright",pch=c(1,4,13),legend=c("Female","Male", "NA"))
+         pch=ifelse(phenoData.dt_v2[Fetal_Sex!=predicted_sex]$Fetal_Sex=="Female",1,4),
+         col=2, xlim=c(11,15))
+  legend("topright",pch=c(1,4),legend=c("Female","Male"))
   title(main = RGsetChara)
   
   # samples with fetal sex in meta data not same as predicted fetal sex
@@ -125,7 +126,7 @@ CheckFetalSex <- function(RGsetChara){
     dplyr::select(rowname:Study, X:predicted_sex) %>% print(n=Inf)
   
   # remove intermediat data
-  rm(meth)
+  rm(GMethSet)
   
   # return phenoData_withPredict, the df with predicted fetal sex
   return(as_tibble(phenoData.dt_v2))
@@ -137,12 +138,7 @@ CheckFetalSex <- function(RGsetChara){
 ### use `CheckFetalSex`
 ```{r CheckFetalSexforAllTissues}
 
-TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
-                      "GEO_RGset_450k_Amnion", 
-                      "GEO_RGset_450k_Chorion", 
-                      "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
-                      "GEO_RGset_450k_UC", "GEO_RGset_450k_UCB"
-                      )
+TissueRGsetNames <- c("GEO_RGset_450k_Tissue", "GEO_RGset_EPIC_Tissue")
 
 
 for(i in TissueRGsetNames){
@@ -154,19 +150,42 @@ for(i in TissueRGsetNames){
 }
 
 # save all phenoData with predicted fetal sex infotmation
-save(GEO_phenoData_450k_normalPlacenta_PreFS, GEO_phenoData_EPIC_normalPlacenta_PreFS,
-     GEO_phenoData_450k_Amnion_PreFS, GEO_phenoData_EPIC_Amnion_PreFS,
-     GEO_phenoData_450k_Chorion_PreFS, GEO_phenoData_EPIC_Chorion_PreFS,
-     GEO_phenoData_450k_Decidua_PreFS, GEO_phenoData_EPIC_Decidua_PreFS,
-     GEO_phenoData_450k_MaternalBlood_PreFS, 
-     GEO_phenoData_450k_mesenchyme_PreFS,
-     GEO_phenoData_450k_trophoblast_PreFS, 
-     GEO_phenoData_450k_UC_PreFS, 
-     GEO_phenoData_450k_UCB_PreFS,
-  file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allPhenoData_addPredictedFetalSex.RData"
+GEO_phenotypes_addMinfiPredictedSex <- rbind(GEO_phenoData_450k_Tissue_PreFS,
+                                        GEO_phenoData_EPIC_Tissue_PreFS)
+
+save(GEO_phenotypes_addMinfiPredictedSex,
+  file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allPhenoData_addMinfiPredictedFetalSex.RData"
 )
 
-RGsetChara="GEO_RGset_450k_Chorion"
+# RGsetChara="GEO_RGset_450k_Tissue"
+
+```
+
+
+### Draw plot for sex and predicted sex
+
+```{r}
+
+# The decidua (EPIC array) sex info. is NA, which should be female, so we replace the sex info. from phenodata with female
+GEO_phenotypes_addMinfiPredictedSex[is.na(GEO_phenotypes_addMinfiPredictedSex$Fetal_Sex), ]$Fetal_Sex <- rep("Female",2)
+
+# add CorrectSexInfo column
+GEO_phenotypes_addMinfiPredictedSex$CorrectSexInfo <- GEO_phenotypes_addMinfiPredictedSex$Fetal_Sex == GEO_phenotypes_addMinfiPredictedSex$predicted_sex
+
+# plot fetal sex
+GEO_phenotypes_addMinfiPredictedSex %>% 
+  ggplot(aes(x=X, y=Y, colour=CorrectSexInfo)) +
+  geom_point()
+  
+
+GEO_phenotypes_addMinfiPredictedSex %>% 
+  dplyr::select(Sample, Sample_name, Trimester, Additional_Info, Fetal_Sex, Study, ArrayType, X, Y, predicted_sex, CorrectSexInfo) %>% 
+  dplyr::mutate(Outlier1=ifelse(.$Additional_Info%in%"Outlier", "Outlier", "Pure")) %>% 
+  dplyr::mutate(Outlier = case_when(Sample_name %in% c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01") ~ "Outlier",
+                             !(Sample_name %in% c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01")) ~ Outlier1)) %>% 
+  dplyr::select(Sample, Sample_name, Trimester, Study, ArrayType, Outlier, X, Y, Sex=Fetal_Sex, predicted_sex, CorrectSexInfo) %>% 
+  dplyr::arrange(desc(CorrectSexInfo)) %>% 
+  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addMinfiPredictedSex.csv")
 
 ```
 
