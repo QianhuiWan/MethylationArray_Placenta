@@ -28,6 +28,7 @@ library(ENmix)
 library(FactoMineR)
 library(doParallel)
 library(ggplot2)
+library(ggpubr)
 library(RColorBrewer)
 pal <- brewer.pal(8, "Dark2")
 
@@ -173,9 +174,16 @@ GEO_phenotypes_addMinfiPredictedSex[is.na(GEO_phenotypes_addMinfiPredictedSex$Fe
 GEO_phenotypes_addMinfiPredictedSex$CorrectSexInfo <- GEO_phenotypes_addMinfiPredictedSex$Fetal_Sex == GEO_phenotypes_addMinfiPredictedSex$predicted_sex
 
 # plot fetal sex
+theme_set(theme_pubr())
 GEO_phenotypes_addMinfiPredictedSex %>% 
-  ggplot(aes(x=X, y=Y, colour=CorrectSexInfo)) +
-  geom_point()
+  ggplot(aes(x=X, y=Y, colour=CorrectSexInfo, shape=predicted_sex)) +
+  geom_point()+
+  # geom_text(aes(label=ifelse(X<13.5 & Y <12,as.character(Sample_name),'')),hjust=0,vjust=0)+
+  labs(x="X chr, median total intensity (log2)",
+       y="Y chr, median total intensity (log2)",
+       colour="Correctly labelled sex")+
+  theme(text = element_text(size=9, colour ="black"),
+        legend.position = "right")
   
 
 GEO_phenotypes_addMinfiPredictedSex %>% 
@@ -189,5 +197,6 @@ GEO_phenotypes_addMinfiPredictedSex %>%
 
 ```
 
+* There are 2 samples in the middle of this plot. They are "GSM1947399_3999997080_R02C01" and "GSM1947213_6008581028_R01C01". The former sample has more variance than other male samples, the latter sample is an outlier placenta sample which could be mixed placenta sample.
 
 
