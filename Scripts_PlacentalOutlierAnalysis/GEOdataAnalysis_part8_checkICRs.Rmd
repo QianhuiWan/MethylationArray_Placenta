@@ -364,7 +364,8 @@ methTrack_Term <- DataTrack(
   # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
   # col=brewer.pal(8,"Dark2")[c(3,4,2,1)],
   # col=brewer.pal(8,"Dark2")[1:2],
-  col=c(rep(brewer.pal(8,"Dark2")[1],5), brewer.pal(8,"Dark2")[2]),
+  col=c(rep(brewer.pal(8,"Dark2")[1],length(levels(factor(PhenodataPlacenta_Term$Outlier3)))-1),
+        brewer.pal(8,"Dark2")[2]),
   # type = c("a", "p"), # a: line plot of average
   # jitter.x=TRUE,
   # jitter.y=TRUE,
