@@ -43,9 +43,6 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_
 ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
-# Residuals, these residuals are Mvalues with control PCA1&2 removed
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected.rds")
-
 # BM list after normalisation, but not corrected for batch across samples
 NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
 
@@ -53,7 +50,7 @@ NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/Norm
 PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
 
 # for annotating outliers
-placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all,rds") %>%
+placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all.rds") %>%
   dplyr::select(Sample_name, Outlier) %>% 
   unique() %>% 
   `colnames<-`(c("Sample_name","Outlier3"))
@@ -73,7 +70,7 @@ Pr <- promoters(genes(TxDb), upstream = 1000, downstream = 100)
 table(colnames(NormBMlist$NormBAll) %in% GEO_phenotypes$Sample_name)
 Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormBAll), GEO_phenotypes$Sample_name),]
 
-# T1 samples
+# T1 samples=====================
 PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
 PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier"| PhenodataPlacenta$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
 
@@ -97,7 +94,6 @@ values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(Placenta_betaNorm[ma
 
 ### add seqinfo
 bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
-bs_hg19
 
 ### check names are the same or not
 seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
@@ -121,11 +117,10 @@ ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in%
                                    intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
 
 GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #128459
+```
 
-
-
-
-# T2 samples
+```{r}
+# T2 samples===========================
 PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
 PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Additional_Info%in%"Outlier"| PhenodataPlacenta_T2$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
 
@@ -170,10 +165,10 @@ ProbesForPMDanalysis_T2 <- ann450ksub_T2[ann450ksub_T2$Name %in%
 
 GRangeProbesForPMDanalysis_T2 <- GRangeProbe_T2[GRangeProbe_T2$Name %in% ProbesForPMDanalysis_T2$Name, ] #128459
 
+```
 
-
-
-# Term samples
+```{r}
+# Term samples==============================
 PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
 PhenodataPlacenta_Term$Outlier <- factor(ifelse(PhenodataPlacenta_Term$Additional_Info%in%"Outlier"| PhenodataPlacenta_Term$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
 
@@ -532,17 +527,11 @@ ProbesBetaMeansInPMD_Term <- group_by_overlaps(PMDs_hg19, PMD_BetaMeansIn10kbTil
 
 ```
 
+
 ### join T1 T2 and Term samples (Mean betas of each PMD)
 
 plot the violin plot with average betas of 10kb non-overlapping tailed genome. 10kb bins with probe more than 5 were selected.
 ```{r}
-# ProbesBetaInPMD <- find_overlaps(PMDs_hg19, GRangeProbesForPMDanalysis)[,c(2,4:35)] %>% mcols() %>% unique() %>% as.data.frame() %>%  remove_rownames() %>% column_to_rownames(var="Name")
-
-## change matrix to data frame
-# ProbesBetaMeansInPMD_long <- ProbesBetaInPMD %>% as.data.frame() %>% 
-#   gather(key = "sampleName",
-#          value = "MeanBOfPMD",
-#          contains("X"))
 
 ProbesBetaMeansInPMD_T1T2Term <- ProbesBetaMeansInPMD %>% as.data.frame() %>% 
     left_join(as.data.frame(ProbesBetaMeansInPMD_T2), by="query") %>% 
@@ -590,67 +579,31 @@ AllPMDsMeanViolinPlot
 
 saveRDS(AllPMDsMeanViolinPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/AllPMDsMeanViolinPlot.rds")
 
+
+# statistic test
+
+# library("ggpubr")
+# ggline(ProbesBetaMeansInPMD_long_v2, x = "Outlier", y = "MeanBOfPMD", color = "Trimester",
+#        add = c("mean_se"), 
+#        # order = c("First", "Second", "Term"),
+#        ylab = "Beta", xlab = "Outlier", ylim=c(0.4, 0.7))+
+#   # ylim(0.4,0.7)
+#   # scale_y_continuous(breaks=seq(0.4, 0.7, 0.1), limits=c(0.4,0.7))
+#   geom_hline(yintercept = c(0.45,0.65))
+#   # facet_wrap(~Trimester)
+
+
+for(i in c("First", "Second", "Term")){
+wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%in%i, ]$MeanBOfPMD
+            ~ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%in%i, ]$Outlier) %>% 
+    print()
+}
+
 ```
 
 
 # 3. Plot beta values and PMDs (Term trimester samples)
 ```{r , eval=FALSE}
-# 
-# colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
-# registerDoParallel(cores = 5)
-# 
-# table(colnames(NormBMlist$NormBAll) %in% GEO_phenotypes$Sample_name)
-# Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormBAll), GEO_phenotypes$Sample_name),]
-# 
-# PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
-# PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier", "Outlier", "Standard"))
-# 
-# Placenta_Mnorm_v1 <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta$Sample_name]
-# # Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
-# Placenta_betaNorm <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta$Sample_name]
-# 
-# # some preperation for plotting
-# ## Get probe ranges and select probe not related with islands
-# Gset_placenta <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm, array = "IlluminaHumanMethylation450k",
-#                                                annotation = "ilmn12.hg19",mergeManifest = TRUE,
-#                                                what = "Beta")
-# 
-# GRangeProbe <- Gset_placenta@rowRanges[, c(1:2,7)]
-# 
-# # add mcol to GRangeProbe
-# ## get GRange of all probes: 200k
-# ### add values to GRange object metadata columns
-# matchWithGRprobe <- base::match(GRangeProbe$Name, rownames(Placenta_betaNorm))
-# values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(Placenta_betaNorm[matchWithGRprobe,], check.names = F)) 
-# 
-# ### add seqinfo
-# bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
-# bs_hg19
-# ### check names are the same or not
-# seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
-# 
-# ### assign seqinfo to my GRange for all probes 626374
-# seqinfo(GRangeProbe) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
-#                                 seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
-#                                 isCircular = isCircular(seqinfo(bs_hg19))[1:24],
-#                                 genome = genome(seqinfo(bs_hg19))[1:24])
-# 
-# ## get annotation and remove probes related wtih CpG islands
-# ann450ksub <- ann450k[match(rownames(Placenta_betaNorm), ann450k$Name), ] %>% as.data.frame()
-# 
-# ProbeNotOnIslandAndShore <- ann450ksub[!(ann450ksub$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
-# ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
-# 
-# # ProbesOnGenePromoter <- find_overlaps(Pr,GRangeProbe)$Name %>% unique()
-# # ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Name%in%ProbesOnGenePromoter),]
-# 
-# ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in% 
-#                                    intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
-# 
-# GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #117133
-
-# Gviz plot 
-# Gviz plot 
 genome <- "hg19"
 
 chrom <- "chr21"
