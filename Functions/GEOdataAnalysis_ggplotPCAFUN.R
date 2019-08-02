@@ -3,8 +3,8 @@ ggplotPCA <- function(PCA_Placenta_M, Matched_pd, value){
   
   new_plotDF <- data.frame(x=PCA_Placenta_M$ind$coord[,1], 
                            y=PCA_Placenta_M$ind$coord[,2],
-                           GA = Matched_pd$Gestation,
-                           FetalSex= Matched_pd$Fetal_Sex,
+                           # GA = Matched_pd$Gestation,
+                           Sex= Matched_pd$Fetal_Sex,
                            Tissue=str_replace_all(Matched_pd$Sample, c(
                              "placental"="Placental",
                              "umbilical"="Umbilical")),
@@ -14,12 +14,11 @@ ggplotPCA <- function(PCA_Placenta_M, Matched_pd, value){
                            ArrayType=Matched_pd$ArrayType
   )
   
-  colnames(new_plotDF) <- c("x", "y", "Gestational age", "FetalSex", "Tissue", 
+  colnames(new_plotDF) <- c("x", "y", #"Gestational age", 
+                            "Sex", "Tissue", 
                             "Trimester", "Study", "Outlier", "ArrayType")
   
   # Plot the new dataframe
-  ## color to use
-  
   PCAplot_norm551 <- new_plotDF %>%
     ggplot(aes(x, y)) + 
     geom_point(aes(shape = Tissue, col=Outlier), alpha = 1, size = 5)+ 
@@ -32,14 +31,6 @@ ggplotPCA <- function(PCA_Placenta_M, Matched_pd, value){
   # save the PCA plot as pdf:
   pdf(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAplot-Normalised", value, "_GEOsamples.pdf"),
       width = 13, height = 7)
-  
-  theme_set(theme_bw())
-  PCAplot_norm551
-  dev.off()
-  
-  # save as tiff
-  tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAplot-Normalised", value, "_GEOsamples.tiff"), 
-       width = 20,height = 15, units="cm",  res = 300)
   
   theme_set(theme_bw())
   PCAplot_norm551
