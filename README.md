@@ -61,13 +61,6 @@ I did normalisation and batch correction for data sets
     * 2. Also tried to use QN1 (quantile normalisation, between array normalisaiton) before BMIQ normalisation.
     * 3. Then tried normalising with BMIQ and then correct batch with Combat
     * 4. Also tried normalising with BMIQ and then regress out batch (PC1 and PC2 from control probes) to get residuls.
-    
-    1 ,2 and 3 are not correcting batch effect very well: 
-    
-    1--there is not one study that contain all tissue types
-    2--QN1 doesn't eliminate batch effects
-    3--Combat can remove "Trimester" variable, but can't remove "Study" batch ("Study" is contained/confounded with "tissue type")
-    4--this method use the linear model to remove batch, and use residuals generate PCA plots.
 
 * Ploted PCA plot for normalised and corrected data
 
