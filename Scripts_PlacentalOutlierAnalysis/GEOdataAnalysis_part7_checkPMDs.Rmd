@@ -7,7 +7,6 @@ output: html_document
 
 This document is mainly for part7 of the GEO data set analysis, that is match beta values with PMDs.
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
 ```
@@ -44,14 +43,16 @@ ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
 # BM list after normalisation, but not corrected for batch across samples
-NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_300k.rds")
 
 # PMDS
 PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
 
 # for annotating outliers
 placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all.rds") %>%
-  dplyr::select(Sample_name, Outlier.x) %>% 
+  dplyr::select(Sample_name, Outlier) %>% 
   unique() %>% 
   `colnames<-`(c("Sample_name","Outlier3"))
 
@@ -561,6 +562,7 @@ AllPMDsMeanViolinPlot <- ggplot(ProbesBetaMeansInPMD_long_v2, aes(Outlier, MeanB
   labs(x="", y="Beta values", fill="Placenta")+
   geom_boxplot(width=0.1, fill="white")+
   facet_wrap(~Trimester)+
+  stat_compare_means(label = "p.signif", method = "wilcox.test") +
   theme(text = element_text(size=10, colour = "black"),
         # axis.text.x=element_text(size=6, colour = "black"),
         axis.text.x=element_blank(),
@@ -592,4 +594,5 @@ wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%
 }
 
 ```
+
 

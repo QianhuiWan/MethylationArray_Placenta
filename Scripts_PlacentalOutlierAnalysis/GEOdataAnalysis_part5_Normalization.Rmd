@@ -74,7 +74,7 @@ There are 6 tissue types (we choose tissue types located near placenta) in total
   # annotation: ann450k or annEPIC, need to be a DataFrame, annataion from the illumina annotation package
 registerDoParallel(cores = 10)
   
-  # do BMIQ normalisation for all Msets
+  # do BMIQ normalisation for all 300K beta values
   Msets <- c('Mset_450k_normalPlacenta_v1', 'Mset_EPIC_normalPlacenta', 'Mset_EPIC_normalPlacenta_ourStudy',
            'Mset_450k_Amnion', #'Mset_EPIC_Amnion',
            'Mset_450k_Chorion', #'Mset_EPIC_Chorion',
@@ -99,15 +99,45 @@ registerDoParallel(cores = 10)
     as.data.frame() %>% rownames_to_column(var="Probe")
   
   
-  champ.norm(beta=myLoad$beta,
-               rgSet=myLoad$rgSet,
-               mset=myLoad$mset,
-               resultsDir="./CHAMP_Normalization/",
-               method="BMIQ",
-               plotBMIQ=FALSE,
-               arraytype="450K",
-               cores=3)
+  BetaAllNorm <- champ.norm(beta=Join.df_v2,
+             # rgSet=myLoad$rgSet,
+             # mset=myLoad$mset,
+             resultsDir="~/DNAme/Process_decidual/RDSfiles/",
+             method="BMIQ",
+             plotBMIQ=FALSE,
+             arraytype="450K",
+             cores=3)
+  
+  # M values
+  Mnorm <- log2(BetaAllNorm/(1 - BetaAllNorm))
+  MAllNorm <- Mnorm[apply(Mnorm, 1, function(x) all(is.finite(x))), , drop=FALSE]
+  
   }
+
+ PCA_all <- PCA(t(MAllNorm)) 
+source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_ggplotPCAFUN.R")
+
+Mall_pcaRES <- ggplotPCA(PCA_Placenta_M = PCA_all, 
+                         Matched_pd = GEO_phenotypes_joinedSamples, 
+                         value = "Mval_allNorm")
+
+Mall_pcaRES %>% 
+  ggplot(aes(x, y)) + 
+  geom_point(aes(shape = Tissue, col=Study), alpha = 1, size = 5)+ 
+  # scale_color_manual(values = namedPal2)+
+  scale_shape_manual(values=1:11)+
+  labs(x="PC1", y="PC2")+
+  theme(text = element_text(size=20))
+
+
+df <- PCA_all$ind$coord %>% as.data.frame() %>% rownames_to_column(var="Sample_name") %>% 
+  left_join(GEO_phenotypes_joinedSamples, by="Sample_name") %>% column_to_rownames(var="Sample_name")
+
+a1 <- mclust::Mclust(df[,c("Dim.1","Dim.2")],2) #for 2 groups
+table(a1$classification,df$Sample)
+with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classification))
+with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
+
 
   # left_join values form all samples
   Join_allNorm.df <- ListToJoin %>% purrr::reduce(left_join, by = "Probe")

@@ -44,15 +44,14 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_
 ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
-# Residuals, these residuals are Mvalues with control PCA1&2 removed
-load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allSamplesResiduals_ControlCorrected.rds")
-
 # BM list after normalisation, but not corrected for batch across samples
-NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_300k.rds")
 
 # for annotating outliers
 placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all.rds") %>%
-  dplyr::select(Sample_name, Outlier.x) %>% 
+  dplyr::select(Sample_name, Outlier) %>% 
   unique() %>% 
   `colnames<-`(c("Sample_name","Outlier3"))
 
@@ -86,7 +85,7 @@ genes <- annotateTranscripts(TxDb.Hsapiens.UCSC.hg19.knownGene, "org.Hs.eg.db")
 ICR_matchedGene <- matchGenes(ICRsGR, genes) #, type = "fiveprime"
 mcols(ICRsGR) <- cbind(mcols(ICRsGR), ICR_matchedGene[, c(1, 3:12,14)])
 
-saveRDS(ICRsGR, file ="/home/qianhui/DNAme/Process_decidual/ICRs/ICRsGR.rds")
+# saveRDS(ICRsGR, file ="/home/qianhui/DNAme/Process_decidual/ICRs/ICRsGR.rds")
 ```
 
 
@@ -479,12 +478,13 @@ pal2 <- c("#08519C",pal[2])
 namedPal2 <- pal2 %>% `names<-`(unique(ProbesBetaInICR_long_v2$Outliers))
 
 # plot and save the violin plot
-ICRsViolinPlot <- ggplot(ProbesBetaInICR_long_v2, aes(Outlier, Betas, fill=Outliers))+ 
+ICRsViolinPlot <- ggplot(ProbesBetaInICR_long_v2, aes(Outlier, Betas, fill=Outlier))+ 
   geom_violin(trim = T, aes(fill=Outlier))+ 
   scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Mixed", "Standard"="Pure"))+
   labs(x="", y="Beta values", fill="Placenta")+
   geom_boxplot(width=0.1, fill="white")+
   facet_wrap(~Trimester)+
+  stat_compare_means(label = "p.signif", method = "wilcox.test") +
   theme(text = element_text(size=10, colour = "black"),
         # axis.text.x=element_text(size=6, colour = "black"),
         axis.text.x=element_blank(),
@@ -514,17 +514,19 @@ wilcox.test(ProbesBetaInICR_long_v2[ProbesBetaInICR_long_v2$Trimester%in%i, ]$Be
 
 ```
 
+
 ### plot T1, T2 & term seperatly, facet_wrap by Trimester (Sup. Figure 2)
 ```{r}
 
 T1T2TermICRGenes<- ggplot(ProbesBetaInICR_long_v2,  #[ProbesBetaInICR_long_v2$Trimester%in%"First",]
-       aes(Gene, Betas, fill=Outliers))+ 
+       aes(Gene, Betas, fill=Outlier))+ 
   # geom_violin(trim = T, aes(fill=Outlier))+ 
   geom_boxplot(aes(fill=Outlier))+ 
   scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Mixed", "Standard"="Pure"))+
   labs(x="", y="Beta values", fill="Placenta")+
   # geom_boxplot(width=0.1, fill="white")+
   facet_wrap(~Trimester, nrow = 3, ncol = 1)+
+  stat_compare_means(label = "p.signif", method = "wilcox.test") +
   theme(text = element_text(size=10, colour = "black"),
         axis.text.x=element_text(size=9, angle = 45, vjust = 0.9, hjust = 0.95, colour = "black"),
         # axis.text.x=element_blank(),
@@ -547,6 +549,7 @@ T1T2TermICRGenes
 # 3. arrange violin plot of PMD and ICR together (Figure2 A/B)
 
 ```{r}
+
 AllPMDsMeanViolinPlot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/AllPMDsMeanViolinPlot.rds")
 ICRsViolinPlot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/allICRsViolinPlot.rds")
 

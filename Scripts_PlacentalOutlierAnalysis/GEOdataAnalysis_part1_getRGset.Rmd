@@ -58,24 +58,6 @@ pal2 <- colorFun(10)
 
 theme_set(theme_bw())
 
-# crossreactiveProbes <- read_csv("/home/qianhui/DNAme/Process-QH/13059_2016_1066_MOESM1_ESM-cross-reactive.csv")
-# colnames(crossreactiveProbes)[1] <- "ProbeNames"
-
-# Placenta_betaNorm <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_betaBMIQ617284_5rm.rds")
-# Placenta_Mnorm_v1 <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_Mnorm617284_5rm.rds")
-
-# phenoDataPlacenta91 <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/phenoDataPlacenta91.rds")
-# phenoDataPlacenta <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/phenoDataPlacenta.rds")
-# 
-# Placenta_betaNorm <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_betaBMIQ_96.rds")
-# Placenta_Mnorm_v1 <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/Placenta_Mnorm_96.rds")
-
-# raw data after filtering and before bg correction and normalisation
-# methPlacenta_PBeadXsnpXY <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/placenta_MethylSetRaw_drop_PBeadXsnpXY.rds")
-
-# data after bg correction
-# methylsetPlacenta_bgCorrENmix <- readRDS(file = "/home/qianhui/DNAme/Process_placenta_workflow/placenta_methylsetPlacenta_bgCorrENmix.rds")
-
 ```
 
 

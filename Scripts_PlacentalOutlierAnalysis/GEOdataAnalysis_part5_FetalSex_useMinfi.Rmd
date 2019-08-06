@@ -57,9 +57,9 @@ GEO_RGset_EPIC_Tissue <- read.metharray.exp(base = GEO_baseDir,
 
 ```
 
-# 3. ewastools: check sex and contanmincation of sampels.
+# 3. minfi: check sex of sampels.
 
-## Functions to use ewastools to check fetal sex and genotypes.
+## Functions to use minfi to check sex.
 
 ### 1) `CheckFetalSex` Function
 ```{r checkFetalSex}
