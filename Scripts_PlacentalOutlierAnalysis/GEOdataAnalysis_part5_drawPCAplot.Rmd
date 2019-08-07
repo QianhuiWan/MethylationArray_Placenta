@@ -1,5 +1,5 @@
 ---
-title: "PC1Analysis"
+title: "PCA"
 author: "Qianhui"
 date: "12/17/2018"
 output: html_document
@@ -35,9 +35,6 @@ registerDoParallel(cores=10)
 ## GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
 
-# GEO_phenotypes_addPredictedSex <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addPredictedSex.rds")
-# # PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
 
 PCA_Placenta_M <- readRDS(file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all.Rds")
 
@@ -55,6 +52,10 @@ annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC
 ```{r}
 
 eigenvalues <- PCA_Placenta_M$eig[1:10, ]
+
+tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/ScreePlot.tiff"), 
+     width = 20,height = 15, units="cm",  res = 300)
+
 barplot(eigenvalues[, 2], names.arg=1:nrow(eigenvalues), 
        main = "Variances",
        xlab = "Principal Components",
@@ -64,6 +65,8 @@ barplot(eigenvalues[, 2], names.arg=1:nrow(eigenvalues),
 # Add connected line segments to the plot
 lines(x = 1:nrow(eigenvalues), eigenvalues[, 2], 
       type="b", pch=19, col = "red")
+
+dev.off()
 
 ```
 
@@ -170,6 +173,7 @@ return(new_plotDF)
 
 # use ggplotPCA function to plot PCAs
 ```{r}
+
 ## all samples
 PCA408 <- ggplotPCA(PCA_Placenta_M = PCA_Placenta_M, Matched_pd = Matched_pd, value = "all408NormMAll")
 
@@ -229,14 +233,15 @@ All408rbind$TrimesterSex <- do.call(paste0, All408rbind[c("Trimester", "FetalSex
 
 PCAallplot <- All408rbind %>%
   ggplot(aes(x, y)) + 
-  geom_point(aes(shape = TrimesterSex, col=TissueNoGreen), alpha = 1, size = 2)+ 
+  geom_point(aes(shape = Trimester, col=TissueNoGreen), alpha = 1, size = 2)+ 
   scale_color_manual(name="Tissue", values = c("Amnion"="#000000", "Chorion"="#BD0026", 
                                                "Decidua"="#984EA3",  
                                                "Placenta"="#D95F02", "Impure placenta"="#1B9E77", 
                                                "Umbilical cord blood"="#F781BF","Maternal whole blood"="#999999"))+
-  scale_shape_manual(values=c(FirstFemale=0,FirstMale=15, 
-                              SecondFemale=1,SecondMale=16, 
-                              TermFemale=2, TermMale=17))+
+  scale_shape_manual(values=c(0,1,2))+
+  # scale_shape_manual(values=c(FirstFemale=0,FirstMale=15, 
+  #                             SecondFemale=1,SecondMale=16, 
+  #                             TermFemale=2, TermMale=17))+
   labs(x="PC1", y="PC2")+
   scale_y_continuous(breaks=c(-600,-300,0, 300, 600), limits = c(-600, 800))+
   scale_x_continuous(breaks=c(-400,0, 400, 800), limits = c(-410, 1150))+
@@ -253,21 +258,25 @@ PCAallplot <- All408rbind %>%
         legend.title=element_text(size=6),
         legend.text=element_text(size=6),
         legend.position="top")
+```
 
+
+plot study batches:
+```{r}
 
 colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
 pal2 <- colorFun(15)
-# namedPal2 <- pal2 %>% `names<-`(unique(PCA408$Study))
+namedPal2 <- pal2 %>% `names<-`(unique(PCA408$Study))
 # namedPal2 <- pal2 %>% `names<-`(unique(PCA408$Trimester))
-namedPal2 <- pal2 %>% `names<-`(unique(PCA408$FetalSex))
+# namedPal2 <- pal2 %>% `names<-`(unique(PCA408$FetalSex))
 
-theme_set(theme_pubr())
+
 
 PCAplot408 <- PCA408 %>%
   ggplot(aes(x, y)) + 
-  # geom_point(aes(col = Study), alpha = 1, size = 5)+
+  geom_point(aes(col = Study), alpha = 1, size = 5)+
   # geom_point(aes(col=Trimester), alpha = 1, size = 5)+
-  geom_point(aes(col=FetalSex), alpha = 1, size = 5)+
+  # geom_point(aes(col=FetalSex), alpha = 1, size = 5)+
   # scale_colour_gradient(low = "#56B1F7", high = "#132B43")+
   # scale_color_brewer(palette = "Set1")
   scale_color_manual(values = namedPal2)+
@@ -276,15 +285,28 @@ PCAplot408 <- PCA408 %>%
   theme(text = element_text(size=15),
         legend.position="right")
 
+
+tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/ColorByStudyBatches.tiff"), 
+     width = 20,height = 15, units="cm",  res = 300)
+theme_set(theme_pubr())
+PCAplot408
+dev.off()
+```
+
+save files:
+```{r}
 saveRDS(PCA408, file = "/home/qianhui/DNAme/Process_decidual/figures/PCA408df.rds")
 
 saveRDS(PCA408plot, file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples.rds")
+
+# saveRDS(PCAallplot, file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot_noSexLabel.rds")
 
 saveRDS(PCAallplot, file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot.rds")
 
 ```
 
 
+Compare with results from ewastool R package:
 ```{r}
 
 
@@ -322,8 +344,6 @@ PCA408 %>%
 ```
 
 
-
-
 # mclust for classifying samples based on PCA plot
 ```{r}
 # all saples PCA
@@ -349,7 +369,7 @@ PCAclassPlot <- df %>%
   scale_shape_manual(values=c(0:5))+
   scale_color_manual(name="Clusters", values = c("1"="#000000","2"="#D95F02"), 
                      labels=c("1"="Cluster 1", "2"="Cluster 2"))+
-  labs(x="PC1 (26.11%)", y="PC2 (10.35%)")+
+  labs(x="PC1 (25.91%)", y="PC2 (10.69%)")+
   scale_y_continuous(breaks=c(-600,-300,0, 300, 600), limits = c(-600, 800))+
   scale_x_continuous(breaks=c(-400,0, 400, 800), limits = c(-410, 1150))+
   # ylim(-600,600)+
@@ -362,7 +382,7 @@ PCAclassPlot <- df %>%
         axis.text.y =element_text(size=9, colour = "black"),
         legend.position="top")
 
-tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAmclustClassPlot.tiff"), 
+tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAmclustClassPlot_v1.tiff"), 
      width = 20,height = 15, units="cm",  res = 300)
 theme_set(theme_pubr())
 PCAclassPlot
@@ -417,7 +437,7 @@ PercClassOutPutMclust %>%
 ```
 
 
-Where the potencial mixed placenta sample locate:
+Where the potential mixed placenta sample locate:
 ```{r}
 
 PercClassOutPutMclust$Sample_name[41:44]

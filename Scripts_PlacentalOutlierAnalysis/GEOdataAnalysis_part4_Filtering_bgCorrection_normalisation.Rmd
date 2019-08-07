@@ -387,10 +387,6 @@ saveRDS(PCA_all, file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all.
 
 ```
 
-```{r}
-NameWithoutGSE71678 <- Matched_pd[!(Matched_pd$Study%in%"GSE71678"),]$Sample_name
-# Mall <- Mall[,colnames(Mall)%in%NameWithoutGSE71678]
-```
 
 clustering
 ```{r}
@@ -409,10 +405,6 @@ Mall_pcaRES %>%
              linetype=4, colour="black")+
   geom_vline(aes(xintercept=quantile(PCA_all$ind$coord[, 1], 0.75)+ 3*IQR(PCA_all$ind$coord[, 1])),
              linetype=4, colour="black")+
-  #  geom_vline(aes(xintercept=quantile(PCA_all$ind$coord[rownames(PCA_all$ind$coord)%in%NameWithoutGSE71678, 1], 0.75)+ 1.5*IQR(PCA_all$ind$coord[rownames(PCA_all$ind$coord)%in%NameWithoutGSE71678, 1])),
-  #            linetype=4, colour="black")+
-  # geom_vline(aes(xintercept=quantile(PCA_all$ind$coord[rownames(PCA_all$ind$coord)%in%NameWithoutGSE71678, 1], 0.25)+ 3*IQR(PCA_all$ind$coord[rownames(PCA_all$ind$coord)%in%NameWithoutGSE71678, 1])),
-  #            linetype=4, colour="black")+
   scale_shape_manual(values=1:11)+
   labs(x="PC1", y="PC2")+
   theme(text = element_text(size=8))
@@ -427,76 +419,6 @@ with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classificati
 with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
 
 a1$z %>% as.data.frame() %>% rownames_to_column() %>% arrange(V2)
-```
-
-
-
-```{r}
-# svd plot using M values
-# MAllNorm <- BetaAllNorm
-table(colnames(MAllNorm) %in% Matched_pd$Sample_name)
-# Matched_pd <- Matched_pd[Matched_pd$Sample%in%"Placenta",]
-Mall <- MAllNorm[, colnames(MAllNorm)%in%Matched_pd$Sample_name]
-
-# NameWithoutGSE71678 <- NormBMlist$phenoDataAll[!(NormBMlist$phenoDataAll$Study%in%"GSE71678"),]$Sample_name
-# Mall <- Mall[,colnames(Mall)%in%NameWithoutGSE71678]
-  
-pd <- Matched_pd[, c("Sample_name", "Sample","Trimester", "Fetal_Sex", "ArrayType", 
-                     "Study", "Array", "Slide")]
-
-# pd_term <- pd[pd$Trimester%in%"Term",]
-# Mallterm <- Mall[, colnames(Mall) %in% pd_term$Sample_name]
-
-
-# chage to right class for each column
-cols2 = c(1:8)
-pd[,cols2] <-  lapply(pd[,cols2], function(x){as.character(x)})
-
-pd_term[,cols2] <-  lapply(pd_term[,cols2], function(x){as.character(x)})
-
-# SVD plots_all 408 samples
-champ.SVD(beta = Mallterm, pd = pd_term,resultsDir = "/home/qianhui/DNAme/Process_decidual/figures/MPlot_allM408_SVD")
-
-# pcrplot(Mall,cov = pd,npc=6)
-
-# Combat to correct position effects
-# table(PCA_placenta_addPostion$SampleNames==NormBMlist$phenoDataAll$Sample_name)
-# NormBMlist$phenoDataAll$Position2 <- PCA_placenta_addPostion$Position2
-
-TrimesterAdjusted_Mall <- champ.runCombat(beta = Mall, 
-                pd = pd,
-                variablename = "Sample",
-                batchname = c("ArrayType","Trimester"),
-                logitTrans = FALSE)
-
-champ.SVD(beta = TrimesterAdjusted_Mall, pd = pd, resultsDir = "/home/qianhui/DNAme/Process_decidual/figures/MPlot_allM408_Tadjusted_SVD")
-
-
-TrimesterAdjusted_MallPCA <- FactoMineR::PCA(t(TrimesterAdjusted_Mall))
-
-source(file = "~/DNAme/Process_decidual/ggplotPCAFUN.R")
-
-TrimesterAdjusted_Mall_pcaRES <- ggplotPCA(PCA_Placenta_M = TrimesterAdjusted_MallPCA, 
-                                           Matched_pd = Matched_pd, 
-                                           value = "Mval_Tadjusted")
-
-TrimesterAdjusted_Mall_pcaRES %>% 
-  ggplot(aes(x, -y)) + 
-  geom_point(aes(shape = Tissue, col=Study), alpha = 1, size = 5)+ 
-  # scale_color_manual(values = namedPal2)+
-  scale_shape_manual(values=1:11)+
-  labs(x="PC1", y="PC2")+
-  theme(text = element_text(size=20))
-
-
-df <- TrimesterAdjusted_MallPCA$ind$coord %>% as.data.frame() %>% rownames_to_column(var="Sample_name") %>% 
-  left_join(Matched_pd, by="Sample_name") %>% column_to_rownames(var="Sample_name")
-
-a1 <- mclust::Mclust(df[,c("Dim.1","Dim.2")],2) #for 2 groups
-table(a1$classification,df$Sample)
-with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classification))
-with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
-
 ```
 
 
