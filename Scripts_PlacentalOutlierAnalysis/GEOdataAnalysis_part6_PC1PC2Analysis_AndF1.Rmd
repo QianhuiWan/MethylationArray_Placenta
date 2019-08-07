@@ -496,6 +496,7 @@ saveRDS(gp, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plo
 
 # Figure1
 ```{r}
+
 theme_set(theme_pubr())
 
 # PCAs
@@ -503,9 +504,9 @@ theme_set(theme_pubr())
 # load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
 
 PCA408plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples.rds")
-# PCAT1plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCAT1plot.rds")
-# PCAT2plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCAT2plot.rds")
-# PCATermplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCATermPlot.rds")
+
+# PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot_noSexLabel.rds")
+
 PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot.rds")
 
 outlierDim1Plot_all <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_all.rds")
@@ -523,7 +524,7 @@ PCAs <- ggarrange(PCA408plot,
                   # PCAT1plot, PCAT2plot, PCATermplot,
                   PCAT1T2Termplot,
                   labels = c("A", "B"),
-                  ncol = 2, nrow = 1, widths = c(1,3),
+                  ncol = 2, nrow = 1, widths = c(1.3,3),
                   font.label=list(size = 12, color = "black", face = "bold", family = "Arial"),
                   legend=FALSE)
 
@@ -533,6 +534,8 @@ PCAs <- ggarrange(PCA408plot,
 #           label.x = c(0, 0.05),
 #           ncol = 2, widths = c(1,0.8))
 
+# tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure1_v4_noSexLabel.tiff",
+#      width = 25, height = 17, units = "cm", res = 300)
 tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure1_v4.tiff",
      width = 25, height = 17, units = "cm", res = 300)
 theme_set(theme_pubr())
