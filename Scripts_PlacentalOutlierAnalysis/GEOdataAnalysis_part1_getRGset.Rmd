@@ -4,6 +4,9 @@ author: "Qianhui"
 date: "28/08/2018"
 output: html_document
 ---
+
+This is the part1 of this analysis. Read in raw IDAT files and save RGsets.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
 ```
@@ -397,7 +400,7 @@ Check whether we can read 450k and EPIC data together: the result shows that we 
 <!--    filter(str_detect(Sample, pattern="^Placenta$")) %>% -->
 <!--    filter(str_detect(Disease, pattern="Uncomplicated$")) -->
 
-<!-- GEO_RGset_normalPlacenta <- read.metharray.exp(base = GEO_baseDir, targets = GEO_phenotypes_normalPlacenta,  ->
+<!-- GEO_RGset_normalPlacenta <- read.metharray.exp(base = GEO_baseDir, targets = GEO_phenotypes_normalPlacenta, -->
 <!--                                                force = TRUE) -->
 
 <!-- ``` -->
