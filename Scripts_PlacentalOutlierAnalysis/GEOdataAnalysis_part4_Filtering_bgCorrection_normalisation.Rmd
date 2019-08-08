@@ -1,11 +1,11 @@
 ---
-title: "technical report (mainly 450k data, 15 GEO data sets used)"
+title: "technical report"
 author: "Qianhui"
 date: "21/11/2018"
 output: html_document
 ---
 
-This document is mainly for part4 of the GEO data set analysis, filtering, dye bias correction and backgroud correction steps.
+This document is mainly for part4 of the GEO data set analysis, filtering, dye bias correction, backgroud correction steps.
 
 The preprocessed beta values and the correspounding M values were stored in a list for each tissue type. 
 The Msets for each tissue types were saved as RData as well.
@@ -210,7 +210,7 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
 
 These 2 failed samples are placental sample and maternal blood sample respectively, and both of them were from first trimester.
 
-### read in EPIC and 450k seperately and do preprocess ENmix
+### read in EPIC and 450k seperately
 
 ```{r}
 
@@ -229,7 +229,7 @@ GEO_RGset_EPIC <- read.metharray.exp(base = GEO_baseDir,
 ```
 
 
-get filtered Msets
+### get filtered Msets
 ```{r}
 
 GEO_Mset_450k_Fil <- FilterFun(RGsetChara = GEO_RGset_450k,
@@ -244,7 +244,7 @@ GEO_Mset_EPIC_Fil <- FilterFun(RGsetChara = GEO_RGset_EPIC,
 
 ```
 
-get common probes
+### get common probes
 ```{r}
 
 intersetProbes <- intersect(rownames(GEO_Mset_450k_Fil), rownames(GEO_Mset_EPIC_Fil))
@@ -261,8 +261,9 @@ RemovedProbe_EPIC <- GEO_Mset_EPIC[!(rownames(GEO_Mset_EPIC)%in%intersetProbes),
 
 ```
 
+## C) Background correction and dye bias correction:
 
-Preprocess Enmix
+### Preprocess Enmix
 ```{r}
 
 GEO_Mset_450k_Fil_enmix <- preprocessENmix(GEO_RGset_450k, exCpG = RemovedProbe_450k, nCores = 10)
@@ -281,7 +282,7 @@ GEO_Mset_EPIC_Fil_enmix <- preprocessENmix(GEO_RGset_EPIC, exCpG = RemovedProbe_
 <!-- ``` -->
 
 
-Get Beta and M values from Msets
+### Get Beta and M values from Msets
 ```{r}
 
 betaList <- list()
@@ -300,7 +301,7 @@ for (i in c("GEO_Mset_450k_Fil_enmix","GEO_Mset_EPIC_Fil_enmix")){
    
 ```
 
-bind beta and M values from 450k and EPIC array
+### bind beta and M values from 450k and EPIC array
 ```{r}
 
 Beta_all <- betaList$GEO_Mset_450k_Fil_enmix %>% 
@@ -353,6 +354,8 @@ with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
 
 ```
 
+
+## D) Normalisation:
 
 ```{r}
 library(ChAMP)
