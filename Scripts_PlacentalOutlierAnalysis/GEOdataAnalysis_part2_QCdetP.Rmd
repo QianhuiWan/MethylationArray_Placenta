@@ -1,5 +1,5 @@
 ---
-title: "technical report (mainly 450k data, 15 GEO data sets used)"
+title: "technical report"
 author: "Qianhui"
 date: "21/11/2018"
 output: html_document
