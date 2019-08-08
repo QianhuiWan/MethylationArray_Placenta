@@ -42,9 +42,6 @@ load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_
 ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
-# BM list after normalisation, but not corrected for batch across samples
-# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
-
 NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_300k.rds")
 
 # PMDS
@@ -111,8 +108,6 @@ ann450ksub <- ann450k[match(rownames(Placenta_betaNorm), ann450k$Name), ] %>% as
 ProbeNotOnIslandAndShore <- ann450ksub[!(ann450ksub$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
 ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
 
-# ProbesOnGenePromoter <- find_overlaps(Pr,GRangeProbe)$Name %>% unique()
-# ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Name%in%ProbesOnGenePromoter),]
 
 ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in% 
                                    intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
@@ -583,7 +578,7 @@ saveRDS(AllPMDsMeanViolinPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSf
 
 ```
 
-
+Statistical test using Mann–Whitney U test:
 ```{r}
 # statistic test
 
