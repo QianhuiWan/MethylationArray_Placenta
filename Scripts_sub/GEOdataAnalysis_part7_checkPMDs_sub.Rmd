@@ -1,0 +1,591 @@
+---
+title: "GEO data sets_PMD analysis_sub"
+author: "Qianhui"
+date: "14/01/2019"
+output: html_document
+---
+
+This document is mainly for part7 of the GEO data set analysis, that is match beta values with PMDs.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
+```
+
+
+# 1. load data and packages
+```{r package, warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(minfi)
+library(magrittr)
+library(tibble)
+library(doParallel)
+library(Gviz)
+library(dplyr)
+library(reshape2)
+library(minfi)
+library(plyranges)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+library(ggplot2)
+library(ggpubr)
+library(RColorBrewer)
+pal <- brewer.pal(8, "Dark2")
+
+# GEOmeta, GEO_phenotypes
+load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
+
+
+# annotation needed for using functions
+ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
+annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
+
+NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_300k_sub.rds")
+
+# PMDS
+PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
+
+# for annotating outliers
+placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all_sub.rds") %>%
+  dplyr::select(Sample_name, Outlier) %>% 
+  unique() %>% 
+  `colnames<-`(c("Sample_name","Outlier3"))
+
+```
+
+
+# 2. Plot PMDs
+
+## 2.1 Select probes for PMDs (T1 amd Term samples)
+```{r}
+colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+registerDoParallel(cores = 5)
+TxDb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+Pr <- promoters(genes(TxDb), upstream = 1000, downstream = 100)
+
+table(colnames(NormBMlist$NormBAll) %in% GEO_phenotypes$Sample_name)
+Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormBAll), GEO_phenotypes$Sample_name),]
+
+# T1 samples=====================
+PhenodataPlacenta <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
+PhenodataPlacenta$Outlier <- factor(ifelse(PhenodataPlacenta$Additional_Info%in%"Outlier"| PhenodataPlacenta$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
+
+Placenta_Mnorm_v1 <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta$Sample_name]
+# Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+Placenta_betaNorm <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta$Sample_name]
+
+# some preperation for plotting
+## Get probe ranges and select probe not related with islands
+Gset_placenta <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm, array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe <- Gset_placenta@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe <- base::match(GRangeProbe$Name, rownames(Placenta_betaNorm))
+values(GRangeProbe) <- cbind(values(GRangeProbe), DataFrame(Placenta_betaNorm[matchWithGRprobe,], check.names = F)) 
+
+### add seqinfo
+bs_hg19 <- BSgenome.Hsapiens.UCSC.hg19
+
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe) %>% seqnames()
+
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+## get annotation and remove probes related wtih CpG islands
+ann450ksub <- ann450k[match(rownames(Placenta_betaNorm), ann450k$Name), ] %>% as.data.frame()
+
+ProbeNotOnIslandAndShore <- ann450ksub[!(ann450ksub$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
+ProbeNotOnPromoter <- ann450ksub[!(ann450ksub$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
+
+
+ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in% 
+                                   intersect(ProbeNotOnIslandAndShore$Name,ProbeNotOnPromoter$Name), ] #367159
+
+GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #128459
+```
+
+```{r}
+# T2 samples===========================
+PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
+PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Additional_Info%in%"Outlier"| PhenodataPlacenta_T2$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
+
+Placenta_Mnorm_v1_T2 <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_T2$Sample_name]
+# Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+Placenta_betaNorm_T2 <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta_T2$Sample_name]
+
+# some preperation for plotting
+## Get probe ranges and select probe not related with islands
+Gset_placenta_T2 <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm_T2, 
+                                               array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",
+                                               mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe_T2 <- Gset_placenta_T2@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe_T2 <- base::match(GRangeProbe_T2$Name, rownames(Placenta_betaNorm_T2))
+values(GRangeProbe_T2) <- cbind(values(GRangeProbe_T2), DataFrame(Placenta_betaNorm_T2[matchWithGRprobe_T2,], check.names = F)) 
+
+### add seqinfo
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe_T2) %>% seqnames()
+
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe_T2) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+## get annotation and remove probes related wtih CpG islands
+ann450ksub_T2 <- ann450k[match(rownames(Placenta_betaNorm_T2), ann450k$Name), ] %>% as.data.frame()
+
+ProbeNotOnIslandAndShore_T2 <- ann450ksub_T2[!(ann450ksub_T2$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
+ProbeNotOnPromoter_T2 <- ann450ksub_T2[!(ann450ksub_T2$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
+
+ProbesForPMDanalysis_T2 <- ann450ksub_T2[ann450ksub_T2$Name %in% 
+                                   intersect(ProbeNotOnIslandAndShore_T2$Name, ProbeNotOnPromoter_T2$Name), ] 
+
+GRangeProbesForPMDanalysis_T2 <- GRangeProbe_T2[GRangeProbe_T2$Name %in% ProbesForPMDanalysis_T2$Name, ] #128459
+
+```
+
+```{r}
+# Term samples==============================
+PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
+PhenodataPlacenta_Term$Outlier <- factor(ifelse(PhenodataPlacenta_Term$Additional_Info%in%"Outlier"| PhenodataPlacenta_Term$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard"))
+
+Placenta_Mnorm_v1_Term <- NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_Term$Sample_name]
+# Placenta_betaNorm <- 2^Placenta_Mnorm_v1 / (1+2^Placenta_Mnorm_v1)
+Placenta_betaNorm_Term <- NormBMlist$NormBAll[,colnames(NormBMlist$NormBAll)%in%PhenodataPlacenta_Term$Sample_name]
+
+# some preperation for plotting
+## Get probe ranges and select probe not related with islands
+Gset_placenta_Term <- makeGenomicRatioSetFromMatrix(Placenta_betaNorm_Term, 
+                                               array = "IlluminaHumanMethylation450k",
+                                               annotation = "ilmn12.hg19",
+                                               mergeManifest = TRUE,
+                                               what = "Beta")
+
+GRangeProbe_Term <- Gset_placenta_Term@rowRanges[, c(1:2,7)]
+
+# add mcol to GRangeProbe
+## get GRange of all probes: 200k
+### add values to GRange object metadata columns
+matchWithGRprobe_Term <- base::match(GRangeProbe_Term$Name, rownames(Placenta_betaNorm_Term))
+values(GRangeProbe_Term) <- cbind(values(GRangeProbe_Term), DataFrame(Placenta_betaNorm_Term[matchWithGRprobe_Term,], check.names = F)) 
+
+### add seqinfo
+### check names are the same or not
+seqnames(seqinfo(bs_hg19))[1:24] == seqinfo(GRangeProbe_Term) %>% seqnames()
+
+### assign seqinfo to my GRange for all probes 626374
+seqinfo(GRangeProbe_Term) <- Seqinfo(seqnames = seqnames(seqinfo(bs_hg19))[1:24],
+                                seqlengths = seqlengths(seqinfo(bs_hg19))[1:24],
+                                isCircular = isCircular(seqinfo(bs_hg19))[1:24],
+                                genome = genome(seqinfo(bs_hg19))[1:24])
+
+## get annotation and remove probes related wtih CpG islands
+ann450ksub_Term <- ann450k[match(rownames(Placenta_betaNorm_Term), ann450k$Name), ] %>% as.data.frame()
+
+ProbeNotOnIslandAndShore_Term <- ann450ksub_Term[!(ann450ksub_Term$Relation_to_Island %in% c("Island", "N_Shore", "S_Shore")),]
+ProbeNotOnPromoter_Term <- ann450ksub_Term[!(ann450ksub_Term$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")),]
+
+ProbesForPMDanalysis_Term <- ann450ksub_Term[ann450ksub_Term$Name %in% 
+                                   intersect(ProbeNotOnIslandAndShore_Term$Name, ProbeNotOnPromoter_Term$Name), ] 
+
+GRangeProbesForPMDanalysis_Term <- GRangeProbe_Term[GRangeProbe_Term$Name %in% ProbesForPMDanalysis_Term$Name, ] #128459
+
+```
+
+
+## 2.2 bin/tile Genome into 10kb non-overlapping bins
+```{r}
+# check the seqinfo of the filtered GRanges for all probes for PMDs: these 2 GRanges have similar seqinfo
+GRangeProbesForPMDanalysis %>% seqinfo()
+GRangeProbesForPMDanalysis_Term %>% seqinfo()
+
+# tile the genome
+tiles_10kb <- unlist(tileGenome(seqinfo(GRangeProbesForPMDanalysis_Term), tilewidth = 10000))
+
+# calculate mean beta for 10kb bins for *T1 samples*
+# using rlang, this method is much quicker than for loop
+library(rlang)
+# your column names for your 96 ids, replace as necessary
+# nms  <- paste0("sample", 1:96)
+nms <- colnames(values(GRangeProbesForPMDanalysis))[4:24]
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+PMD_BetaMeansIn10kbTiles_T1 <- group_by_overlaps(tiles_10kb, GRangeProbesForPMDanalysis) %>% summarise(!!! cols)
+
+PMD_BetaMeansIn10kbTiles_T1_v1 <- PMD_BetaMeansIn10kbTiles_T1[PMD_BetaMeansIn10kbTiles_T1$query%in%which(count_overlaps(tiles_10kb, GRangeProbesForPMDanalysis)>5),]
+
+PMD_BetaMeansIn10kbTiles_T1_v1GR <- tiles_10kb[PMD_BetaMeansIn10kbTiles_T1_v1$query,]
+mcols(PMD_BetaMeansIn10kbTiles_T1_v1GR) <- DataFrame(PMD_BetaMeansIn10kbTiles_T1_v1[,2:22])
+
+
+
+# calculate mean beta for 10kb bins for *T2 samples*
+# using rlang, this method is much quicker than for loop
+library(rlang)
+# your column names for your 96 ids, replace as necessary
+# nms  <- paste0("sample", 1:96)
+nms <- colnames(values(GRangeProbesForPMDanalysis_T2))[4:19]
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+PMD_BetaMeansIn10kbTiles_T2 <- group_by_overlaps(tiles_10kb, GRangeProbesForPMDanalysis_T2) %>% summarise(!!! cols)
+
+PMD_BetaMeansIn10kbTiles_T2_v1 <- PMD_BetaMeansIn10kbTiles_T2[PMD_BetaMeansIn10kbTiles_T2$query%in%which(count_overlaps(tiles_10kb, GRangeProbesForPMDanalysis_T2)>5),]
+
+PMD_BetaMeansIn10kbTiles_T2_v1GR <- tiles_10kb[PMD_BetaMeansIn10kbTiles_T2_v1$query,]
+mcols(PMD_BetaMeansIn10kbTiles_T2_v1GR) <- DataFrame(PMD_BetaMeansIn10kbTiles_T2_v1[,2:17])
+
+
+
+# calculate mean beta for 10kb bins for *Term samples*
+# using rlang, this method is much quicker than for loop
+library(rlang)
+# your column names for your 96 ids, replace as necessary
+# nms  <- paste0("sample", 1:96)
+nms <- colnames(values(GRangeProbesForPMDanalysis_Term))[4:345]
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+PMD_BetaMeansIn10kbTiles_Term <- group_by_overlaps(tiles_10kb, GRangeProbesForPMDanalysis_Term) %>% summarise(!!! cols)
+
+PMD_BetaMeansIn10kbTiles_Term_v1 <- PMD_BetaMeansIn10kbTiles_Term[PMD_BetaMeansIn10kbTiles_Term$query%in%which(count_overlaps(tiles_10kb, GRangeProbesForPMDanalysis_Term)>5),]
+
+PMD_BetaMeansIn10kbTiles_Term_v1GR <- tiles_10kb[PMD_BetaMeansIn10kbTiles_Term_v1$query,]
+mcols(PMD_BetaMeansIn10kbTiles_Term_v1GR) <- DataFrame(PMD_BetaMeansIn10kbTiles_Term_v1[,2:343])
+
+PhenodataPlacenta <- left_join(PhenodataPlacenta, placentaOutlier, by="Sample_name")
+PhenodataPlacenta_T2 <- left_join(PhenodataPlacenta_T2, placentaOutlier, by="Sample_name")
+PhenodataPlacenta_Term <- left_join(PhenodataPlacenta_Term, placentaOutlier, by="Sample_name")
+
+
+```
+
+
+## 2.3 plot PMD (Chr21)
+```{r}
+# Gviz plot 
+genome <- "hg19"
+
+chrom <- "chr21"
+
+start <- 13000000
+
+end <- 48119895
+
+# add extra space to plot (since plot range should be longer than this DMR)
+minbase <- start - (0.0001*(end-start))
+maxbase <- end + (0.0001*(end-start))
+
+#### ideogram Track:
+iTrack <- IdeogramTrack(genome = genome, chromosome = chrom, #name = "", 
+                        from=minbase, to=maxbase,
+                        lwd=1,
+                        fontsize=9, fontcolor="black")
+
+#### Genome Axis Track:
+gTrack <- GenomeAxisTrack(col="black", cex=0.7, name = "", fontcolor="black", add53=T, lwd=0.4,
+                          # add35=T,
+                          fontsize=7, col="black")
+
+#### PMD track
+PMDTrack <- AnnotationTrack(range=PMDs_hg19, gensome = genome, chromosome = chrom, 
+                            start = minbase, end = maxbase,
+                            name = "PMDs",
+                            id="PMD",
+                            fontcolor.feature="black",
+                            col.title="black",
+                            cex.title=0.8,
+                            fontsize=8,
+                            #groupAnnotation=NULL,
+                            background.title="transparent",
+                            rotation.title=0,
+                            showId=FALSE,
+                            showFeatureId=FALSE,
+                            stacking = "dense"
+)
+
+#### create methylation data Track:
+library(RColorBrewer)
+# colorFun <- colorRampPalette(brewer.pal(9,"Blues")[3:9])
+# colorFun <- colorRampPalette(brewer.pal(9,"YlOrRd"))
+colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
+PhenodataPlacenta$Outlier2 <- str_replace_all(PhenodataPlacenta$Outlier, c("Outlier"="Impure", "Standard"="Pure"))
+PhenodataPlacenta_T2$Outlier2 <- str_replace_all(PhenodataPlacenta_T2$Outlier, c("Outlier"="Impure", "Standard"="Pure"))
+PhenodataPlacenta_Term$Outlier2 <- str_replace_all(PhenodataPlacenta_Term$Outlier, c("Outlier"="Impure", "Standard"="Pure"))
+
+methTrack_T1 <- DataTrack(
+  range = GRangeProbesForPMDanalysis[,4:24],
+  # range = PMD_BetaMeansIn10kbTiles_T1_v1GR,
+  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
+  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
+  groups=factor(PhenodataPlacenta$Outlier3),
+  # groups=factor(PhenodataPlacenta$Sample_name),
+  ylim= c(0, 1.00),
+  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
+  col=c(rep(brewer.pal(8,"Dark2")[1],5), brewer.pal(8,"Dark2")[2]),
+  # col=c(rep(brewer.pal(8,"Dark2")[1],length(PhenodataPlacenta$Sample_name))),
+  # type = c("a", "p"), # a: line plot of average
+  type = "smooth", span=1/36, #baseline=0.5,
+  name = "beta value\n(First)",
+  # background.panel = "black",
+  legend=FALSE,
+  fontsize.legend=10,
+  fontcolor.legend="black",
+  background.title="transparent",
+  # rotation.title=0,
+  frame=FALSE,
+  col.title="black",
+  col.axis="black",
+  # cex.title=0.8,
+  # cex.axis=0.8,
+  cex.legend = 1
+  )
+
+methTrack_T2 <- DataTrack(
+  range = GRangeProbesForPMDanalysis_T2[,4:19],
+  # range = PMD_BetaMeansIn10kbTiles_T1_v1GR,
+  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
+  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
+  groups=factor(PhenodataPlacenta_T2$Outlier3),
+  # groups=factor(PhenodataPlacenta_T2$Sample_name),
+  ylim= c(0, 1.00),
+  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
+  col=brewer.pal(8,"Dark2")[1:2],
+  # col=c(rep(brewer.pal(8,"Dark2")[1],length(PhenodataPlacenta_T2$Sample_name))),
+  # type = c("a", "p"), # a: line plot of average
+  type = "smooth", span=1/36, #baseline=0.5,
+  name = "beta value\n(Second)",
+  # background.panel = "black",
+  legend=FALSE,
+  fontsize.legend=10,
+  fontcolor.legend="black",
+  background.title="transparent",
+  # rotation.title=0,
+  frame=FALSE,
+  col.title="black",
+  col.axis="black",
+  # cex.title=0.8,
+  # cex.axis=0.8,
+  cex.legend = 1
+  )
+
+methTrack_Term <- DataTrack(
+  range = GRangeProbesForPMDanalysis_Term[,4:345],
+  # range = PMD_BetaMeansIn10kbTiles_Term_v1GR,
+  genome = genome, chromosome = chrom, start = minbase, end = maxbase,
+  # groups=factor(phenoDataPlacenta_GAordered$Gestational.Age),
+  groups=factor(PhenodataPlacenta_Term$Outlier3),
+  # groups=factor(PhenodataPlacenta_Term$Sample_name),
+  ylim= c(0, 1.00),
+  # col=unique(colorFun(18)[factor(phenoDataPlacenta_GAordered$Gestational.Age)]),
+  col=c(rep(brewer.pal(8,"Dark2")[1],5), brewer.pal(8,"Dark2")[2]),
+  # col=c(rep(brewer.pal(8,"Dark2")[1],length(PhenodataPlacenta_Term$Sample_name))),
+  # type = c("a", "p"), # a: line plot of average
+  type = "smooth", span=1/36, #baseline=0.5,
+  name = "beta value\n(Term)",
+  # background.panel = "black",
+  legend=FALSE,
+  fontsize.legend=10,
+  fontcolor.legend="black",
+  background.title="transparent",
+  # rotation.title=0,
+  frame=FALSE,
+  col.title="black",
+  col.axis="black",
+  # cex.title=0.8,
+  # cex.axis=0.8,
+  cex.legend = 1
+  )
+
+# tracks to draw
+tracks <- list(iTrack, gTrack, PMDTrack, methTrack_T1, methTrack_T2, methTrack_Term)
+
+#### set up relative size for each track:
+sizes <- c(1,1,1,3,3,3)
+T1T2TermPMDtrack <- plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, 
+           grid=FALSE,
+           # lwd.grid=0.5,
+           # lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+
+tiff(filename = "/home/qianhui/DNAme/Process_decidual/figures/GvizPMDchr21_T1samples_v2_sub.tiff", 
+     width = 12, height = 8, units = "cm", res = 300)
+plotTracks(tracks, 
+           from = minbase-1 , to = maxbase+1, 
+           showTitle=TRUE,
+           add53 = TRUE, add35 = TRUE, 
+           grid=FALSE,
+           # lwd.grid=0.5,
+           # lty.grid=3,
+           sizes = sizes,
+           #showBandId=TRUE,
+           #showId=TRUE,
+           #showFeatureId=TRUE,
+           length(tracks))
+dev.off()
+
+```
+
+
+## 2.4 plot violin plot for all PMDs
+
+### 1st Trimester samples
+```{r}
+## calculate mean
+library(plyranges)
+library(rlang)
+### your column names for your 96 ids, replace as necessary
+# nms <- colnames(values(GRangeProbesForPMDanalysis))[4:35]
+
+nms <- colnames(values(PMD_BetaMeansIn10kbTiles_T1_v1GR))
+
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+# ProbesBetaMeansInPMD <- group_by_overlaps(PMDs_hg19, GRangeProbesForPMDanalysis) %>% summarise(!!! cols)
+
+ProbesBetaMeansInPMD <- group_by_overlaps(PMDs_hg19, PMD_BetaMeansIn10kbTiles_T1_v1GR) %>% summarise(!!! cols)
+
+```
+
+
+### 2nd Trimester samples
+```{r}
+## calculate mean
+library(plyranges)
+library(rlang)
+### your column names for your 96 ids, replace as necessary
+# nms <- colnames(values(GRangeProbesForPMDanalysis))[4:35]
+
+nms <- colnames(values(PMD_BetaMeansIn10kbTiles_T2_v1GR))
+
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+# ProbesBetaMeansInPMD <- group_by_overlaps(PMDs_hg19, GRangeProbesForPMDanalysis) %>% summarise(!!! cols)
+
+ProbesBetaMeansInPMD_T2 <- group_by_overlaps(PMDs_hg19, PMD_BetaMeansIn10kbTiles_T2_v1GR) %>% summarise(!!! cols)
+
+```
+
+### Term samples
+```{r}
+
+### your column names for your 96 ids, replace as necessary
+# nms <- colnames(values(GRangeProbesForPMDanalysis_Term))[4:345]
+
+nms <- colnames(values(PMD_BetaMeansIn10kbTiles_Term_v1GR))
+# this will generate the mean calls
+cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
+# the column names for the summarize op
+names(cols) <- paste0("mean_", nms)
+# your code, the !!! unsplices the column names we have generated
+# ProbesBetaMeansInPMD_Term <- group_by_overlaps(PMDs_hg19, GRangeProbesForPMDanalysis_Term) %>% summarise(!!! cols)
+
+ProbesBetaMeansInPMD_Term <- group_by_overlaps(PMDs_hg19, PMD_BetaMeansIn10kbTiles_Term_v1GR) %>% summarise(!!! cols)
+
+```
+
+
+### join T1 T2 and Term samples (Mean betas of each PMD)
+
+plot the violin plot with average betas of 10kb non-overlapping tailed genome. 10kb bins with probe more than 5 were selected.
+```{r}
+
+ProbesBetaMeansInPMD_T1T2Term <- ProbesBetaMeansInPMD %>% as.data.frame() %>% 
+    left_join(as.data.frame(ProbesBetaMeansInPMD_T2), by="query") %>% 
+    left_join(as.data.frame(ProbesBetaMeansInPMD_Term), by="query")
+
+ProbesBetaMeansInPMD_long <- ProbesBetaMeansInPMD_T1T2Term %>% as.data.frame() %>% 
+  gather(key = "sampleName",
+         value = "MeanBOfPMD",
+         contains("mean"))
+
+## add gestational age as a column
+# ProbesBetaMeansInPMD_long_v1 <- ProbesBetaMeansInPMD_long %>% mutate(sampleName= str_replace_all(sampleName, "mean_", ""))
+ProbesBetaMeansInPMD_long_v1 <- ProbesBetaMeansInPMD_long %>% mutate(sampleName= str_replace_all(sampleName, "mean_mean_", ""))
+
+PhenodataPlacentaT1T2Term <- rbind(PhenodataPlacenta, PhenodataPlacenta_T2, PhenodataPlacenta_Term)
+PhenodataPlacentaT1T2Term_v1 <- PhenodataPlacentaT1T2Term %>% mutate(sampleName=Sample_name) %>% 
+  dplyr::select(sampleName, Outlier, Trimester)
+
+ProbesBetaMeansInPMD_long_v2 <- left_join(ProbesBetaMeansInPMD_long_v1, PhenodataPlacentaT1T2Term_v1, by="sampleName")
+
+# save plot
+theme_set(theme_pubr())
+AllPMDsMeanViolinPlot <- ggplot(ProbesBetaMeansInPMD_long_v2, aes(Outlier, MeanBOfPMD))+ 
+  # scale_fill_gradient(low = "#56B1F7", high = "#132B43")+
+  geom_violin(trim = T, aes(fill=Outlier))+ 
+  scale_fill_brewer(palette = "Dark2", labels=c("Outlier"="Mixed", "Standard"="Pure"))+
+  labs(x="", y="Beta values", fill="Placenta")+
+  geom_boxplot(width=0.1, fill="white")+
+  facet_wrap(~Trimester)+
+  stat_compare_means(label = "p.signif", method = "wilcox.test") +
+  theme(text = element_text(size=10, colour = "black"),
+        # axis.text.x=element_text(size=6, colour = "black"),
+        axis.text.x=element_blank(),
+        axis.text.y=element_text(size=10, colour = "black"),
+        legend.position = "right", 
+        strip.text.x = element_text(size = 10, colour = "black"))
+
+## save as tiff
+tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/AllPMDsMeanViolinPlot_sub.tiff", 
+     width = 10, height = 7, units = "cm", res = 300)
+theme_set(theme_pubr())
+AllPMDsMeanViolinPlot
+dev.off()
+
+AllPMDsMeanViolinPlot
+
+saveRDS(AllPMDsMeanViolinPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/AllPMDsMeanViolinPlot_sub.rds")
+
+```
+
+Statistical test using Mann–Whitney U test:
+```{r}
+# statistic test
+
+for(i in c("First", "Second", "Term")){
+wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%in%i, ]$MeanBOfPMD
+            ~ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%in%i, ]$Outlier) %>% 
+    print()
+}
+
+```
+
+
