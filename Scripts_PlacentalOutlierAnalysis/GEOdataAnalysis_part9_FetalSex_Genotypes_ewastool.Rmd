@@ -11,9 +11,9 @@ I used methods from `ewastools` package to identify samples with fetal sex missl
 
 Fetal sex is estimated based on intensities from X/Y chromosomes. 
 
-The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
+The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU ^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
 
-^*^ MM: both allels were methylated (~100% methylation), often refer to AA or BB;   
+ ^*^ MM: both allels were methylated (~100% methylation), often refer to AA or BB;   
     MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
     UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
 
@@ -255,10 +255,4 @@ t[t$log_odds> -4,]
 saveRDS(log_odd_plot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/log_odd_plot_allSamples.rds")
 
 ```
-
-
-
-
-
-
 
