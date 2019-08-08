@@ -49,6 +49,7 @@ GEO_phenotypes_Filtered <- GEO_phenotypes_Filtered[!(GEO_phenotypes_Filtered$Sam
 
 ```
 
+# 2. Get RG channel sets:
 ```{r}
 
 GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
