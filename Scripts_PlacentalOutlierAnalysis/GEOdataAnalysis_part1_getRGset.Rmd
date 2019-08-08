@@ -66,8 +66,7 @@ theme_set(theme_bw())
 'GSE41933'--unbilical cord; 'GSE66459'--unbilical cord blood
 
 ```{r meta, eval=FALSE}
-# Download of the meta data for each data set
-# GSE73375 <- getGEO('GSE73375', destdir  = '/home/qianhui/DNAme/GAclock/RepeatBensClock/GEO_data/')
+# Download the meta data for each data set
 
 GEO_num <- c('GSE66210', 'GSE74738', 'GSE69502', 'GSE75196', 
              'GSE75248', 'GSE93208', 'GSE115508', 'GSE120250', 
@@ -158,15 +157,9 @@ if(length(gzFileNames)==0){
 } # end for n
 
 ```
-😀
 
 
-# 5.reorganise meta data for all GEO data sets
-
-Read the data to RG channel Set using `minfi` package.
-
-## function to get RGsets:
-
+# 5. Get probe annotations
 ```{r}
 ##getwd()
 
@@ -179,6 +172,9 @@ saveRDS(annEPIC, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_G
 # GSE66210.RGset <- getRGset('GSE66210')
 
 ```
+
+
+# 6. Reorganise meta data for all samples from GEO data sets
 
 ## Manipulate meta data for GEO datasets:
 ```{r ReadData1}
@@ -247,7 +243,7 @@ save(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1,
 ```
 
 
-### use `OurOrYourDataPhenoFUN` to add phenodata of our data sets to `GEO_allMetaData_v1.RData`
+### use `OurOrYourDataPhenoFUN` to add meta data of our data sets to `GEO_allMetaData_v1.RData`
 ```{r}
 
 EPICdata <- "OurEPIC10"
@@ -257,7 +253,7 @@ OurOrYourDataPhenoFUN(EPICdata="OurEPIC10")
 ```
 
 
-# 6. bind all the meta data together and read `GEOmeta` samplesheet. 
+# 6. Bind all the meta data together and read `GEOmeta` samplesheet. 
   Then read the data we wanted to Red-Green channel sets.
 ```{r}
 
@@ -392,21 +388,10 @@ save(GEO_RGset_450k_normalPlacenta, GEO_phenoData_450k_normalPlacenta,
 
 ```
 
-Check whether we can read 450k and EPIC data together: the result shows that we can't read in the 450k and EPIC array together. So we probably need to account for the batch effect between these 2 platforms.
-
-<!-- ```{r} -->
-
-<!-- GEO_phenotypes_normalPlacenta <- GEO_phenotypes_Filtered %>% -->
-<!--    filter(str_detect(Sample, pattern="^Placenta$")) %>% -->
-<!--    filter(str_detect(Disease, pattern="Uncomplicated$")) -->
-
-<!-- GEO_RGset_normalPlacenta <- read.metharray.exp(base = GEO_baseDir, targets = GEO_phenotypes_normalPlacenta, -->
-<!--                                                force = TRUE) -->
-
-<!-- ``` -->
+Check whether we can read 450k and EPIC data together: the result shows that we can't read in the 450k and EPIC array together. 
 
 
-# read other tissue samples, also uncomplicated samples  
+# read other tissue samples (uncomplicated samples)
 
  * GSE74738, 450K data, could be gold standard for different tissue types.
 
@@ -440,6 +425,7 @@ getRGset450K <- function(Tissue){
   
   return(GEO_RGset_450k_Tissue)
 }
+
 
 ## get normal tissue data, EPIC
 getRGsetEPIC <- function(Tissue){
