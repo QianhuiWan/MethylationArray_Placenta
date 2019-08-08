@@ -5,7 +5,7 @@ date: "12/17/2018"
 output: html_document
 ---
 
-This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes.
+This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes, clustering samples using PC1 and PC2, and test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study).
 
 
 ```{r setup, include=FALSE}
@@ -36,14 +36,13 @@ library(gridExtra)
 library(ggpubr)
 library(RColorBrewer)
 pal <- brewer.pal(8, "Dark2")
+
 # GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
 
 # Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
 
-# # PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
 
 PCA_Placenta_M <- readRDS(file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all.Rds")
 
@@ -51,8 +50,7 @@ PCA_Placenta_M <- readRDS(file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles
 ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k_GEO15sets.rds")
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
-# BM list after normalisation, but not corrected for batch across samples
-# NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist.rds")
+# BM list after normalisation, but not corrected for study across samples
 
 NormBMlist <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/NormBMlist_300k.rds")
 
@@ -500,8 +498,6 @@ saveRDS(gp, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plo
 theme_set(theme_pubr())
 
 # PCAs
-# PCA_Placenta_M, PCA_PlacentaT1_M, PCA_PlacentaTerm_M
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_placenta_deciduals_allT1Term_BMval.RData")
 
 PCA408plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples.rds")
 
@@ -511,14 +507,6 @@ PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/
 
 outlierDim1Plot_all <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_all.rds")
 
-# top2perc_GOPlot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/top2perc_GOPlot.rds")
-
-# PCAs <- ggarrange(PCA551plot, 
-#                   PCAT1plot, PCAT2plot, PCATermplot,
-#                   labels = c("A", "B", "C", "D"),
-#                   ncol = 4, nrow = 1, widths = c(1,1,1,1.1),
-#                   font.label=list(size = 12, color = "black", face = "bold", family = "Arial"),
-#                   legend=FALSE)
 
 PCAs <- ggarrange(PCA408plot, 
                   # PCAT1plot, PCAT2plot, PCATermplot,
@@ -528,11 +516,6 @@ PCAs <- ggarrange(PCA408plot,
                   font.label=list(size = 12, color = "black", face = "bold", family = "Arial"),
                   legend=FALSE)
 
-# PC1plots <- ggarrange(outlierDim1Plot_all, #top2perc_GOPlot, 
-#           labels = c("C", "D"),
-#           font.label = list(size = 12, face = "bold", color ="black"),
-#           label.x = c(0, 0.05),
-#           ncol = 2, widths = c(1,0.8))
 
 # tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure1_v4_noSexLabel.tiff",
 #      width = 25, height = 17, units = "cm", res = 300)
@@ -541,20 +524,11 @@ tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure1_v4.tiff",
 theme_set(theme_pubr())
 ggarrange(
                PCAs,
-               # PCA551plot,PCAT1plot, PCATermplot,
                outlierDim1Plot_all,
-               # outlierDim1Plot_T1Term, top2perc_GOPlot_T1Term, 
-               # densityCorBoxplots,
                labels = c("", "C"),
-               # ncol = 3, 
                nrow = 2,
                heights = c(1.2,2),
-               
-               # widths = c(1,1,1, 1,2,1),
                font.label = list(size = 12, face = "bold", color ="black")
-               # legend="right",
-               # common.legend = TRUE
-               # layout_matrix = rbind(c(1,2,NA),c(3,3,3), c(4,5,6))
                )
 dev.off()
 
@@ -562,92 +536,9 @@ dev.off()
 ```
 
 
-# check whether 2% probes have difference between fetal sex group and trimester group, suplimentary file
+# check whether PC1 and PC2 correlated with Tissue types, trimester, sex and study groups, suplimentary file
 
-Add fetal sex column and Study column into data frame `placenta_beta_dim1Top2perc.df_all`
-
-```{r}
-
-placenta_beta_dim1Top2perc.df_all <- placenta_beta_dim1Top2perc.df_all %>% 
-  left_join(Matched_pd_placenta[,c("Sample_name", "Fetal_Sex", "ArrayType", "Study", "Outlier")], by="Sample_name")
-
-# saveRDS(placenta_beta_dim1Top2perc.df_all, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_all.rds")
-
-```
-
-
-Test whether top 2% probes is different between trimester groups, fetal sex groups and batch groups:
-
-2% probes:
-```{r}
-
-TrimesterTop2 <- placenta_beta_dim1Top2perc.df_all %>%
-  ggplot(aes(x=Trimester, y=value)) +
-  geom_boxplot()+
-  labs(x="", y="Beta values")+
-  # stat_compare_means(label = "p.signif", method = "wilcox.test",
-  #                    ref.group = ".all.") +
-  theme(axis.text.y = element_text(size=9, colour ="black"),
-        axis.text.x = element_text(size=9, colour ="black"),
-        axis.title=element_text(size=9, colour ="black"),#,face="bold"
-        text = element_text(size=9, colour ="black"))
-
-
-SexTop2 <- placenta_beta_dim1Top2perc.df_all %>%
-  ggplot(aes(x=Fetal_Sex, y=value)) +
-  geom_boxplot()+
-  labs(x="", y="Beta values")+
-  # stat_compare_means(label = "p.signif", method = "wilcox.test",
-  #                    ref.group = ".all.") +
-  theme(axis.text.y = element_text(size=9, colour ="black"),
-        axis.text.x = element_text(size=9, colour ="black"),
-        axis.title=element_text(size=9, colour ="black"),#,face="bold"
-        text = element_text(size=9, colour ="black"))
-
-
-StudyTop2 <- placenta_beta_dim1Top2perc.df_all %>%
-  ggplot(aes(x=Study, y=value)) +
-  geom_boxplot()+
-  labs(x="", y="Beta values")+
-  # stat_compare_means(label = "p.signif", method = "wilcox.test",
-  #                    ref.group = ".all.") +
-  theme(axis.text.y = element_text(size=9, colour ="black"),
-        axis.text.x = element_text(size=9, colour ="black", angle = 45, hjust = 1),
-        axis.title=element_text(size=9, colour ="black"),#,face="bold"
-        text = element_text(size=9, colour ="black"))
-
-OutlierTop2 <- placenta_beta_dim1Top2perc.df_all %>%
-  ggplot(aes(x=Outlier.y, y=value)) +
-  geom_boxplot()+
-  labs(x="", y="Beta values")+
-  # stat_compare_means(label = "p.signif", method = "wilcox.test",
-  #                    ref.group = ".all.") +
-  theme(axis.text.y = element_text(size=9, colour ="black"),
-        axis.text.x = element_text(size=9, colour ="black"),
-        axis.title=element_text(size=9, colour ="black"),#,face="bold"
-        text = element_text(size=9, colour ="black"))
-
-# library("ggpubr")
-# ggline(placenta_beta_dim1Top2perc.df_all, x = "Trimester", y = "value", 
-#        add = c("mean_se"), 
-#        order = c("First", "Second", "Term"),
-#        ylab = "Beta", xlab = "Trimester")+
-#   # ylim(0,1)
-#   scale_y_continuous(breaks=seq(0.0, 1, 0.2), limits=c(0, 1))+
-#   geom_hline(yintercept = c(0.35,0.5))
-
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechSupFigure3.tiff",
-     width = 25, height = 10, units = "cm", res = 300)
-theme_set(theme_pubr())
-
-ggarrange(TrimesterTop2, SexTop2, StudyTop2, OutlierTop2)
-
-dev.off()
-
-```
-
-
-
+Function for anova F test:
 ```{r}
 
 TestPCFUN <- function(PC, pd){
@@ -694,7 +585,7 @@ PC2_study <- TestPCFUN(PC = PCA_Placenta_M$ind$coord[,2], pd = Matched_pd$Study)
 
 ```
 
-Pc1/2 and samples
+Pc1/2 and Tissue types (the sample column in Matched_pd)
 ```{r}
 
 PC1_tissue <- TestPCFUN(PC = PCA_Placenta_M$ind$coord[,1], pd = Matched_pd$Sample) %>% set_rownames("PC1_tissue")
@@ -717,5 +608,4 @@ rbind(PC1_trimester, PC2_trimester,
   write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PC1PC2_TrimesterSexBatch.csv")
 
 ```
-
 
