@@ -61,13 +61,15 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
   methylset_P <- methylset_raw[rowSums(Failed)==0,] #846991
   
   ## drop probes with <3 beads
+  ## If a probe has less than 3 beads in 95% of the samples, we need to remove it because the intensity of this probe is not reliable.
+  
   # if(identical(annotation, ann450k)){
   #   
-  #   EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
-  #   
+  # EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
+  # 
   # }else if(identical(annotation, annEPIC)){
   #   
-  #   EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
+  # EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
   # }
   
   EpicRGset_extended <- RGset

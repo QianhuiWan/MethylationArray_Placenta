@@ -5,10 +5,9 @@ date: "21/11/2018"
 output: html_document
 ---
 
-This document is mainly for part4 of the GEO data set analysis, filtering, dye bias correction, backgroud correction steps.
+This document is mainly for part4 of the GEO data set analysis, including filtering, dye bias correction, backgroud correction and normalisation steps.
 
-The preprocessed beta values and the correspounding M values were stored in a list for each tissue type. 
-The Msets for each tissue types were saved as RData as well.
+The preprocessed beta values and the correspounding M values were stored in a list. 
 
 
 ```{r setup, include=FALSE}
@@ -55,16 +54,14 @@ ann450k <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/ann450k
 annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_GEO15sets.rds")
 
 ```
+* In GEO_phenotypes_Filtered, we filter out failed samples for GEO_RGset_450k_normalPlacenta[,5] (GSM1617002_7668610068_R01C01) and GEO_RGset_450k_MaternalBlood[,8] (GSM1616993_7668610068_R06C02). These 2 failed samples are placenta sample and maternal blood sample respectively, and both of them were from first trimester.
 
 
 # 2. Sample and probe filtering & Background and dye bias correction & nomalisation
 
-There are many tissue types for normal tissue samples around placenta, such as cord blood, chorionic plate and so on. We need to normalise different tissue separately.
-
 There are 6 tissue types (we choose tissue types located near placenta) in total from GEO.
 
-
-## A) Function for filtering and bg correction and normalisation
+## A) Function for filtering
 
 FilterFUN & use FilterFUN
 
@@ -72,96 +69,10 @@ TissueType: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, Umbilical 
 
 ### Function `FilterFUN`
 
-If a probe has less than 3 beads, we need to remove it because the intensity of this probe is not reliable.
 
 ```{r FilterFUN}
-  # dropSNP, dropXY: FALSE or TRUE; dropSNP=TRUE means drop all probes related with SNPs
-  # annotation: ann450k or annEPIC, a DataFrame
 
-FilterFun <- function(RGsetChara, crossreactiveProbes, annotation, 
-                      DropXreactive, DropSNP, DropXY){
-    
-  registerDoParallel(cores = 10)
-  # get the object from character
-  RGset <- RGsetChara
-  
-  # get methylset
-  methylset_raw <- preprocessRaw(RGset) # 866238
-
-  # filtering of probes
-  ## drop P
-  detP <- minfi::detectionP(RGset)
-  Failed <- detP > 0.01
-  methylset_P <- methylset_raw[rowSums(Failed)==0,] #846991
-
-  ## drop probes with <3 beads
-  # if(identical(annotation, ann450k)){
-  #   
-  # EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
-  # 
-  # }else if(identical(annotation, annEPIC)){
-  #   
-  # EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
-  # }
-  
-  EpicRGset_extended <- RGset
-  BeadCount <- getNBeads(EpicRGset_extended)
-  RemainProbe <- rowSums(BeadCount<3) < 0.05 * (ncol(BeadCount))
-  EpicRGset_extended_Bead <- EpicRGset_extended[RemainProbe,]
-  methylset_rawBead <- preprocessRaw(EpicRGset_extended_Bead) # bead number filter
-
-  methylset_PBead <- methylset_P[rownames(methylset_P)%in%rownames(methylset_rawBead),] # 834351
-
-  ## drop cross-reactive probes
-  if(DropXreactive==TRUE){
-  keep <- !(featureNames(methylset_PBead) %in% crossreactiveProbes$ProbeNames)
-  methylset_PBeadX <- methylset_PBead[keep, ] # 792070
-  }else{
-  methylset_PBeadX <- methylset_PBead
-  }
-  
-  ## drop SNPs
-  ### if I use DropSNP argument, I drop all probes with SNPs
-  if(DropSNP==TRUE){
-  GRaSet_meth_PBeadX <- methylset_PBeadX %>% ratioConvert() %>% mapToGenome()
-  GRaSet_meth_PBeadXAddSNPinfo <- addSnpInfo(GRaSet_meth_PBeadX)
-  GRaSet_meth_PBeadXsnp <- dropLociWithSnps(GRaSet_meth_PBeadXAddSNPinfo,
-                                  snps = c("CpG", "SBE", "Probe"), maf = 0)
-
-  meth_PBeadXsnp <- methylset_PBeadX[rownames(methylset_PBeadX)%in% rownames(GRaSet_meth_PBeadXsnp), ]
-
-  
-  }else{
-  ### else, I only drop unwanted SNP related probes, that is SNPs at CpG and SBE sites
-  GRaSet_meth_PBeadX <- methylset_PBeadX %>% ratioConvert() %>% mapToGenome()
-  GRaSet_meth_PBeadXAddSNPinfo <- addSnpInfo(GRaSet_meth_PBeadX)
-  GRaSet_meth_PBeadXsnp <- dropLociWithSnps(GRaSet_meth_PBeadXAddSNPinfo, 
-                                            snps = c("CpG", "SBE"), maf = 0)
-
-  meth_PBeadXsnp <- methylset_PBeadX[rownames(methylset_PBeadX)%in% rownames(GRaSet_meth_PBeadXsnp), ]
-  
-  }
-
-  ## drop probes on X, Y chr
-  if(DropXY==TRUE){
-    
-  keep <- !(featureNames(meth_PBeadXsnp) %in% annotation$Name[annotation$chr %in% c("chrX", "chrY")])
-  meth_PBeadXsnpXY <- meth_PBeadXsnp[keep, ] # 600k
-
-  }else{
-    
-  meth_PBeadXsnpXY <- meth_PBeadXsnp
-  }
-  
-  # the filtered CpGs
-  # filteredCpGs <- setdiff(featureNames(methylset_raw), featureNames(meth_PBeadXsnpXY))
-
-  # remove files not need
-  rm(methylset_raw, EpicRGset_extended,     
-     GRaSet_meth_PBeadX, GRaSet_meth_PBeadXAddSNPinfo, GRaSet_meth_PBeadXsnp)
-  
-  return(meth_PBeadXsnpXY)
-}
+source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_FilterFUN.R")
 
 ```
 
@@ -171,9 +82,6 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
 
 ## B) Use the function FilterFUN to get **filtered Methyl sets** for all the samples from 6 kinds of tissues located around placenta during early development.
 
-* filter out failed samples first for GEO_RGset_450k_normalPlacenta[,5] (GSM1617002_7668610068_R01C01) and GEO_RGset_450k_MaternalBlood[,8] (GSM1616993_7668610068_R06C02).
-
-These 2 failed samples are placental sample and maternal blood sample respectively, and both of them were from first trimester.
 
 ### read in EPIC and 450k seperately
 
@@ -368,7 +276,6 @@ Mall_pcaRES <- ggplotPCA(PCA_Placenta_M = PCA_all,
 Mall_pcaRES %>% 
   ggplot(aes(x, y)) + 
   geom_point(aes(shape = Tissue, col=Study), alpha = 1, size = 5)+ 
-  # scale_color_manual(values = namedPal2)+
   geom_vline(aes(xintercept=quantile(PCA_all$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_all$ind$coord[, 1])),
              linetype=4, colour="black")+
   geom_vline(aes(xintercept=quantile(PCA_all$ind$coord[, 1], 0.75)+ 3*IQR(PCA_all$ind$coord[, 1])),
@@ -387,6 +294,7 @@ with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classificati
 with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
 
 a1$z %>% as.data.frame() %>% rownames_to_column() %>% arrange(V2)
+
 ```
 
 
