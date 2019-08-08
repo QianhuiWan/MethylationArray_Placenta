@@ -61,15 +61,16 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
   methylset_P <- methylset_raw[rowSums(Failed)==0,] #846991
   
   ## drop probes with <3 beads
-  if(identical(annotation, ann450k)){
-    
-    EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
-    
-  }else if(identical(annotation, annEPIC)){
-    
-    EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
-  }
+  # if(identical(annotation, ann450k)){
+  #   
+  #   EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
+  #   
+  # }else if(identical(annotation, annEPIC)){
+  #   
+  #   EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
+  # }
   
+  EpicRGset_extended <- RGset
   BeadCount <- getNBeads(EpicRGset_extended)
   RemainProbe <- rowSums(BeadCount<3) < 0.05 * (ncol(BeadCount))
   EpicRGset_extended_Bead <- EpicRGset_extended[RemainProbe,]
@@ -126,5 +127,4 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
      GRaSet_meth_PBeadX, GRaSet_meth_PBeadXAddSNPinfo, GRaSet_meth_PBeadXsnp)
   
   return(meth_PBeadXsnpXY)
-  
 }

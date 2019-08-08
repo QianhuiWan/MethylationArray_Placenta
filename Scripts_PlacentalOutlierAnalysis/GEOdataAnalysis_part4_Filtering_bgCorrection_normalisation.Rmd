@@ -68,42 +68,7 @@ There are 6 tissue types (we choose tissue types located near placenta) in total
 
 FilterFUN & use FilterFUN
 
-TissueType argument in this function could be: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, Umbilical cord blood.
-
-
-### Function that need to be called in `FilterFUN` to get the number of beads for each probe
-
-```{r}
-# Tissue: Amnoin, Chorion, Decidua, maternal whole blood, and umbilical cord blood.
-
-# ArrayType: 450K or EPIC
-
-getRGset_extended <- function(ArrayType){
-  # base directory
-  GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
-  
-  if(ArrayType=="450K"){
-    # get 450k meta data
-    kept450k <- GEO_phenotypes$ArrayType=='450K'& 
-              !(GEO_phenotypes$Sample_name%in%c("GSM1617002_7668610068_R01C01","GSM1616993_7668610068_R06C02"))
-    GEO_phenotypes_sub <- GEO_phenotypes[kept450k,]
-    
-   }else if(ArrayType=="EPIC"){
-    # get EPIC meta data
-    GEO_phenotypes_sub <- GEO_phenotypes[GEO_phenotypes$ArrayType=='EPIC',]
-   }
-    
-  # get the RGset for this tissue
-  GEO_RGset_extended <- read.metharray.exp(base = GEO_baseDir, 
-                                           targets = GEO_phenotypes_sub, 
-                                           extended = TRUE, force = TRUE)
-  
-  return(GEO_RGset_extended)
-  
-}
-
-```
-
+TissueType: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, Umbilical cord blood.
 
 ### Function `FilterFUN`
 
@@ -130,15 +95,16 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
   methylset_P <- methylset_raw[rowSums(Failed)==0,] #846991
 
   ## drop probes with <3 beads
-  if(identical(annotation, ann450k)){
-    
-  EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
+  # if(identical(annotation, ann450k)){
+  #   
+  # EpicRGset_extended <- getRGset_extended(ArrayType = "450K")
+  # 
+  # }else if(identical(annotation, annEPIC)){
+  #   
+  # EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
+  # }
   
-  }else if(identical(annotation, annEPIC)){
-    
-  EpicRGset_extended <- getRGset_extended(ArrayType = "EPIC")
-  }
-
+  EpicRGset_extended <- RGset
   BeadCount <- getNBeads(EpicRGset_extended)
   RemainProbe <- rowSums(BeadCount<3) < 0.05 * (ncol(BeadCount))
   EpicRGset_extended_Bead <- EpicRGset_extended[RemainProbe,]
@@ -195,7 +161,6 @@ FilterFun <- function(RGsetChara, crossreactiveProbes, annotation,
      GRaSet_meth_PBeadX, GRaSet_meth_PBeadXAddSNPinfo, GRaSet_meth_PBeadXsnp)
   
   return(meth_PBeadXsnpXY)
-
 }
 
 ```
