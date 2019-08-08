@@ -95,25 +95,6 @@ DetectionP_QC <- function(RGsetChara){
                               "SPECIFICITY II"),
                    sampNames = rownames(phenoData),
                    xlim = c(2, 17))
-  
-  # # MDS plot of raw beta values
-  # betaRaw <- minfi::getBeta(RGset)
-  # 
-  # colorFun <- colorRampPalette(brewer.pal(9, "Set1"))
-  # pal2 <- colorFun(10)
-  # 
-  # par(mfrow=c(1,1))
-  # plotMDS(betaRaw, top=485512, labels= phenoData$Trimester,       
-  #         gene.selection="common", col=pal2[factor(phenoData$Fetal_Sex, levels = c('Female', 'Male'))])
-  # legend("bottomleft", legend = c('Female', 'Male'), 
-  #      text.col = pal2, bg="white", cex = 0.3)
-  # 
-  # # density plot of raw beta values
-  # par(cex=0.5)
-  # densityPlot(betaRaw,
-  #           sampGroups = phenoData$Trimester,
-  #           legend=TRUE,
-  #           xlab = "Beta values", pal = pal2)
 
 }
 
@@ -127,14 +108,9 @@ DetectionP_QC <- function(RGsetChara){
 TissueRGsetNames <- c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
                       "GEO_RGset_EPIC_normalPlacenta_ourStudy",
                       "GEO_RGset_450k_Amnion", 
-                      # "GEO_RGset_EPIC_Amnion",
                       "GEO_RGset_450k_Chorion", 
-                      # "GEO_RGset_EPIC_Chorion",
                       "GEO_RGset_450k_Decidua", "GEO_RGset_EPIC_Decidua",
                       "GEO_RGset_450k_MaternalBlood", 
-                      # "GEO_RGset_450k_mesenchyme",
-                      # "GEO_RGset_450k_trophoblast", 
-                      # "GEO_RGset_450k_UC", 
                       "GEO_RGset_450k_UCB"
                       )
 
