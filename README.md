@@ -99,3 +99,5 @@ Show DNA methylation of mixed and pure placenta samples in placenta specific ICR
 * Gviz plot to show DNA methylation of outliers (first second trimester and term) in ICRs
 
 * Plot supplementary figure (difference of DNA methylation between mixed and pure placenta samples at all placenta-specific ICRs)
+
+If you require any further information, feel free to contact Qianhui (qianhui.wan@adelaide.edu.au or wanqianhui@outlook.com).
