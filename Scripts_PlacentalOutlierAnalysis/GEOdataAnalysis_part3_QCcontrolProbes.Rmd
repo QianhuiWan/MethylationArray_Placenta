@@ -7,7 +7,7 @@ output: html_document
 
 This document is mainly for part3 of the GEO data set analysis, that is the quality control of data sets from different tissue types.
 
-I did PCA on control porbes, so we can see whether there are bach effects between different studies. But notice the intensity of control probes were not preprocessed since in preprocess methods, the control probes were filtered out automaticly.
+I did PCA on control porbes, so we can see whether there are obvoious bach effects between different studies. But notice the intensity of control probes were not preprocessed since in preprocess methods, the control probes were filtered out automaticly.
 
 
 ```{r setup, include=FALSE}
@@ -57,7 +57,7 @@ load(file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmb
 ```
 
 
-# 2. look at PCA of control probes
+# 2. PCA of control probes
 
 ## Function for control probe PCA, to identify potential batch effects.
 ```{r PCAofControlProbes}
@@ -162,6 +162,7 @@ save(list=c(paste0("ControlBM", str_replace_all(i, "GEO_RGset", ""))),
 
 ## Function `JoinAndPlotAllControl`
 ```{r joinAllandPlotAll}
+
 ControlBMvalInfo <- tibble(
   TissueRGsetNames = c("GEO_RGset_450k_normalPlacenta", "GEO_RGset_EPIC_normalPlacenta",
                        "GEO_RGset_EPIC_normalPlacenta_ourStudy",
@@ -248,7 +249,6 @@ save(Control408_Beta, Control408_M,
 
 
 ## plot control probes
-
 ```{r}
 
 new_plotDF <- data.frame(x=Control408_M$PCA_control$ind$coord[,1], 
@@ -259,6 +259,7 @@ new_plotDF <- data.frame(x=Control408_M$PCA_control$ind$coord[,1],
     Trimester=Control408_M$phenoDataAll$Trimester,
     Study=Control408_M$phenoDataAll$Study
 )
+
 colnames(new_plotDF) <- c("x", "y", "Gestational age", "FetalSex", "Tissue", "Trimester", "Study")
 
 # Plot the new dataframe
@@ -298,13 +299,7 @@ cols2 = c(1:6)
 pd[,cols2] <-  lapply(pd[,cols2], function(x){as.character(x)})
 
 # SVD plots_all samples
-
 champ.SVD(beta = Mall, pd = pd, resultsDir = "/home/qianhui/DNAme/Process_decidual/figures/MPlot_allM_contorlSVD")
 
 ```
-
-
-
-
-
 
