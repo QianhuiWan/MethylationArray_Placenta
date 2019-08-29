@@ -58,7 +58,8 @@ placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles
 
 # 2. Plot PMDs
 
-## 2.1 Select probes for PMDs (T1 amd Term samples)
+## 2.1 Select probes for PMDs
+### T1 samples (samples form first trimester)
 ```{r}
 colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
 registerDoParallel(cores = 5)
@@ -115,6 +116,7 @@ ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in%
 GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #128459
 ```
 
+### T2 samples (samples form second trimester)
 ```{r}
 # T2 samples===========================
 PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
@@ -163,6 +165,7 @@ GRangeProbesForPMDanalysis_T2 <- GRangeProbe_T2[GRangeProbe_T2$Name %in% ProbesF
 
 ```
 
+### Term samples (samples form term)
 ```{r}
 # Term samples==============================
 PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
@@ -282,7 +285,6 @@ mcols(PMD_BetaMeansIn10kbTiles_Term_v1GR) <- DataFrame(PMD_BetaMeansIn10kbTiles_
 PhenodataPlacenta <- left_join(PhenodataPlacenta, placentaOutlier, by="Sample_name")
 PhenodataPlacenta_T2 <- left_join(PhenodataPlacenta_T2, placentaOutlier, by="Sample_name")
 PhenodataPlacenta_Term <- left_join(PhenodataPlacenta_Term, placentaOutlier, by="Sample_name")
-
 
 ```
 
@@ -589,5 +591,3 @@ wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%
 }
 
 ```
-
-
