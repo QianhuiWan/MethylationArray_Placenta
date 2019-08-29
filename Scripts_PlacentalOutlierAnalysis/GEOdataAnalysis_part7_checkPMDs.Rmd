@@ -5,7 +5,7 @@ date: "14/01/2019"
 output: html_document
 ---
 
-This document is mainly for part7 of the GEO data set analysis, that is match beta values with PMDs.
+This document is mainly for part7 of the GEO data set analysis, that is matching beta values with partially methylated domains (PMDs).
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 

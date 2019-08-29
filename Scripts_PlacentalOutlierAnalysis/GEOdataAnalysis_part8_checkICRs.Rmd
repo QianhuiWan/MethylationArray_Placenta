@@ -5,7 +5,7 @@ date: "14/01/2019"
 output: html_document
 ---
 
-This document is mainly for part8 of the GEO data set analysis, that is match beta values with imprinting control regions (ICRs).
+This document is mainly for part8 of the GEO data set analysis, that is matching beta values with imprinting control regions (ICRs).
 
 
 ```{r setup, include=FALSE}
