@@ -1,5 +1,5 @@
 ---
-title: "GEO data sets_ICR analysis_sub"
+title: "GEO data sets_ICR analysis_use a subset of data"
 author: "Qianhui"
 date: "14/01/2019"
 output: html_document
@@ -87,7 +87,7 @@ mcols(ICRsGR) <- cbind(mcols(ICRsGR), ICR_matchedGene[, c(1, 3:12,14)])
 
 The placenta-specific ICR were ICR46-59; ICR 1-45 were ubiquitously imprinted ICRs.
 
-## 2.1 GRange for all probes (T1)
+## 2.1 GRange for all probes (T1, samples from first trimester)
 ```{r}
 
 colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -137,7 +137,7 @@ GRangeProbesForICRs <- GRangeProbe
 ```
 
 
-## 2.2 GRange for probes (T2)
+## 2.2 GRange for probes (T2, samples from second trimester)
 ```{r}
 # for Term samples
 
@@ -179,7 +179,7 @@ GRangeProbesForICRs_T2 <- GRangeProbe_T2
 ```
 
 
-## 2.3 GRange for probes (Term)
+## 2.3 GRange for probes (Term, samples from term)
 ```{r}
 # for Term samples
 
@@ -223,6 +223,7 @@ PhenodataPlacenta_T2 <- left_join(PhenodataPlacenta_T2, placentaOutlier, by="Sam
 PhenodataPlacenta_Term <- left_join(PhenodataPlacenta_Term, placentaOutlier, by="Sample_name")
 
 ```
+
 
 ## 2.3 Gviz plot for ICR (Chr9, GLIS3)
 
@@ -398,8 +399,8 @@ dev.off()
 
 ```
 
-## 2.4 plot violin plot for placenta specific ICRs
 
+## 2.4 plot violin plot for placenta specific ICRs
 
 ```{r}
 # T1 samples
@@ -475,7 +476,8 @@ saveRDS(ICRsViolinPlot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/al
 
 ```
 
-Statistical test using Mann–Whitney U test:
+
+Statistical test using Mann–Whitney U test (also known as wilcox-test):
 
 ```{r}
 # statistic test
@@ -530,7 +532,7 @@ AllPMDsMeanViolinPlot <- AllPMDsMeanViolinPlot+ggtitle("DNA methylation in PMDs"
 
 ICRsViolinPlot <- ICRsViolinPlot+ggtitle("DNA methylation in ICRs")+theme(plot.title = element_text(hjust = 0.5))
   
-tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure2AB_sub.tiff",
+jpeg(file = "/home/qianhui/DNAme/Process_decidual/figures/TechFigure2AB_sub.jpeg",
      width = 25, height = 7, units = "cm", res = 300)
 theme_set(theme_pubr())
 

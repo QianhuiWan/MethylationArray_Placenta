@@ -14,8 +14,8 @@ Fetal sex is estimated based on intensities from X/Y chromosomes.
 The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU ^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
 
  ^*^ MM: both allels were methylated (~100% methylation), often refer to AA or BB;   
-    MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
-    UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
+     MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
+     UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
@@ -89,7 +89,6 @@ source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_
 
 TissueRGsetNames <- c("GEO_RGset_450k_Tissue", "GEO_RGset_EPIC_Tissue")
 
-
 for(i in TissueRGsetNames){
   # check fetal sex for each subset data sets
   # and save the output df, the phenodata with predicted fetal sex
@@ -132,6 +131,7 @@ GEO_phenotypes_addPredictedSex %>%
 ### output: predicted sex in csv file
 
 ```{r}
+
 GEO_phenotypes_addPredictedSex %>% 
   dplyr::select(Sample, Sample_name, Trimester, Additional_Info, Fetal_Sex, Study, ArrayType, X, Y, predicted_sex, WrongSexInfo) %>% 
   dplyr::mutate(Outlier1=ifelse(.$Additional_Info%in%"Outlier", "Outlier", "Pure")) %>% 
@@ -139,7 +139,7 @@ GEO_phenotypes_addPredictedSex %>%
                              !(Sample_name %in% c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01")) ~ Outlier1)) %>% 
   dplyr::select(Sample, Sample_name, Trimester, Study, ArrayType, Outlier, X, Y, Sex=Fetal_Sex, predicted_sex, WrongSexInfo) %>% 
   dplyr::arrange(desc(WrongSexInfo)) %>% 
-  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addEwastoolPredictedSex.csv")
+  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_addEwastoolPredictedSex_sub.csv")
 
 ```
 
@@ -206,7 +206,7 @@ GEO_phenotypes_ewastoolPurityCheck_output <- GEO_phenotypes_ewastoolPurityCheck 
 
 
 GEO_phenotypes_ewastoolPurityCheck_output %>% 
-  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_ewastoolPurityCheck_output.csv")
+  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_ewastoolPurityCheck_output_sub.csv")
 
 ```
 
@@ -260,9 +260,4 @@ t[t$log_odds> -4,]
 saveRDS(log_odd_plot, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/log_odd_plot_allSamples_sub.rds")
 
 ```
-
-
-
-
-
 
