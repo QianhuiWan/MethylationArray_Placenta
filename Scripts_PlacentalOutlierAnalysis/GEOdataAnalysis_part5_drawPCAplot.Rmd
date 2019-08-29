@@ -171,9 +171,9 @@ dev.off()
 # rbind df and plot them together by facet_wrap
 
 All408rbind <- PCA408
-All408rbind[is.na(All408rbind$FetalSex), ]$FetalSex <- rep("Female",2)
+All408rbind[is.na(All408rbind$Sex), ]$Sex <- rep("Female",2)
 
-All408rbind$TrimesterSex <- do.call(paste0, All408rbind[c("Trimester", "FetalSex")])
+All408rbind$TrimesterSex <- do.call(paste0, All408rbind[c("Trimester", "Sex")])
 
 PCAallplot <- All408rbind %>%
   ggplot(aes(x, y)) + 
@@ -305,21 +305,25 @@ table(a1$classification,df$Sample)
 with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classification))
 with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
 
-# plot mclust result
+# plot mclust result supl
 df$class <- a1$classification
+df$percent <- a1$z[,2]
 
 PCAclassPlot <- df %>%
   ggplot(aes(Dim.1, Dim.2)) + 
-  geom_point(aes(shape = Sample, col=as.factor(class)), alpha = 1, size = 2)+ 
+  geom_point(aes(shape = Sample, col=as.factor(class), alpha = percent), size = 2)+ 
   scale_shape_manual(values=c(0:5))+
   scale_color_manual(name="Clusters", values = c("1"="#000000","2"="#D95F02"), 
                      labels=c("1"="Cluster 1", "2"="Cluster 2"))+
   labs(x="PC1 (25.91%)", y="PC2 (10.69%)")+
   scale_y_continuous(breaks=c(-600,-300,0, 300, 600), limits = c(-600, 800))+
   scale_x_continuous(breaks=c(-400,0, 400, 800), limits = c(-410, 1150))+
+  scale_alpha_continuous(range = c(0.5,1), name="Percentage")+ #guide='none'
   # ylim(-600,600)+
   # xlim(-410, 1150)+
-  guides(color=guide_legend(nrow = 3), shape=guide_legend(nrow = 2)) +
+  guides(color=guide_legend(nrow = 3, order = 2), 
+         shape=guide_legend(nrow = 2, order = 3),
+         alpha=guide_legend(nrow = 3, order = 1)) +
   theme(text = element_text(size=9),
         legend.title=element_text(size=9),
         legend.text=element_text(size=9),
@@ -327,14 +331,14 @@ PCAclassPlot <- df %>%
         axis.text.y =element_text(size=9, colour = "black"),
         legend.position="top")
 
-tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAmclustClassPlot_v1.tiff"), 
+tiff(file = paste0("/home/qianhui/DNAme/Process_decidual/figures/PCAmclustClassPlot_v2.tiff"),
      width = 20,height = 15, units="cm",  res = 300)
 theme_set(theme_pubr())
 PCAclassPlot
 dev.off()
 
-
 ```
+
 
 # mclust output file
 
@@ -361,7 +365,7 @@ PercClassOutPutMclust <- a1$z %>% as.data.frame() %>% rownames_to_column(var="Sa
   left_join(OutlierDetail, by=c("Sample_name"="SampleNames")) %>% 
   left_join(PCA408, by=c("Sample_name"="SampleNames")) %>% 
   dplyr::select(Sample_name, TissueTypes=Tissue, PC1=x, PC2=y, 
-                Trimester, Sex=FetalSex, Study, ArrayType, 
+                Trimester, Sex=Sex, Study, ArrayType, 
                 Outlier=Outlier.x,  PlacentaPercentageMclust=V2) %>%
   arrange(PlacentaPercentageMclust)
   
@@ -421,7 +425,7 @@ datMeth_placenta <- NormBMlist$NormMAll
 Function for dividing, traning and test data:
 ```{r}
 
-source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_TraningTestFuns.R")
+source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_TrainingTestFUNs.R")
 
 ```
 

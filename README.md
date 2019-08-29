@@ -101,4 +101,4 @@ Show DNA methylation of mixed and pure placenta samples in placenta specific ICR
 * Plot supplementary figure (difference of DNA methylation between mixed and pure placenta samples at all placenta-specific ICRs)
 
 
-If you require any further information, feel free to contact Qianhui (Email: qianhui.wan@adelaide.edu.au or wanqianhui@outlook.com).
+# If you require any further information, feel free to contact Qianhui (Email: qianhui.wan@adelaide.edu.au or wanqianhui@outlook.com).

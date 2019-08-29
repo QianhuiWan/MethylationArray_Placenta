@@ -13,7 +13,6 @@ knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.wid
 
 
 # 1.Packages and data required
-
 ```{r package, warning=FALSE, message=FALSE}
 # library(TxDb.Hsapiens.UCSC.hg19.knownGene)
 # library(BSgenome.Hsapiens.UCSC.hg19)
@@ -36,7 +35,6 @@ library(matrixStats)
 library(wateRmelon)
 library(limma)
 library(missMethyl)
-# library(ewastools)
 library(ENmix)
 library(ChAMP)
 library(FactoMineR)
@@ -64,7 +62,6 @@ theme_set(theme_bw())
 
 # 2. get phenodata/metadata for all GEO data sets (15)
 'GSE41933'--unbilical cord; 'GSE66459'--unbilical cord blood
-
 ```{r meta, eval=FALSE}
 # Download the meta data for each data set
 
@@ -112,8 +109,7 @@ save(GSE66210.meta, GSE74738.meta, GSE69502.meta, GSE75196.meta, GSE75248.meta,
 
 
 # 3. get raw data
-save raw data to the baseDir
-
+Save raw data to the base directory.
 ```{r, eval=FALSE}
 
 registerDoParallel(cores = 10)
@@ -178,11 +174,13 @@ saveRDS(annEPIC, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC_G
 
 ## Manipulate meta data for GEO datasets:
 ```{r ReadData1}
+
 source(file = "~/DNAme/Process_decidual/Rcodes/TrimGEOmetaDataFUN.R")
 
 TrimGEOmetaDataFUN(GSEnum = "all")
 
 ```
+
 
 ## our data
 ### Add our outliers 5 + 5 normal placenta, `GEO_allMetaData_v1.RData`
@@ -237,7 +235,6 @@ save(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1,
      GSE113600.meta_v1, GSE66459.meta_v1, phenotypes_GA6to9_10samples_inGEOformat,
      file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
   }
-  
 }
 
 ```
@@ -259,7 +256,6 @@ OurOrYourDataPhenoFUN(EPICdata="OurEPIC10")
 
 # load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1.RData")
 load(file = paste0("/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_allMetaData_v1_add", EPICdata, ".RData"))
-
 
 GEOmeta <- rbind(GSE66210.meta_v1, GSE74738.meta_v1, GSE69502.meta_v1, GSE75196.meta_v1, 
                  GSE75248.meta_v1, GSE93208.meta_v1, GSE115508.meta_v1, GSE120250.meta_v1, 
@@ -456,6 +452,7 @@ Amnoin, Chorion, Decidua, maternal whole blood, placental mesenchyme, placental 
 
 #### 1) Amnion
 ```{r Amnion}
+
 # Amnion
 ## 450k
 GEO_RGset_450k_Amnion <- getRGset450K(Tissue = "Amnion")
@@ -469,6 +466,7 @@ save(GEO_RGset_450k_Amnion, GEO_phenoData_450k_Amnion,
      file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalAmnion.RData")
 
 ```
+
 
 #### 2) Chorion
 ```{r Chorion}
@@ -502,6 +500,7 @@ save(GEO_RGset_450k_Decidua, GEO_phenoData_450k_Decidua,
 
 ```
 
+
 #### 4) Maternal whole blood
 ```{r MaternalBlood}
 ## 450k
@@ -517,7 +516,6 @@ save(GEO_RGset_450k_MaternalBlood, GEO_phenoData_450k_MaternalBlood,
 
 
 #### 5) Umbilical cord blood
-
 ```{r CordBlood}
 
 ## 450k
@@ -529,4 +527,3 @@ save(GEO_RGset_450k_UCB, GEO_phenoData_450k_UCB,
      file ="/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_RG&pData_normalUmbilicalCordBlood.RData")
 
 ```
-
