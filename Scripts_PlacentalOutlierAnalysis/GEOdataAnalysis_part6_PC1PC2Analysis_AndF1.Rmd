@@ -5,8 +5,7 @@ date: "12/17/2018"
 output: html_document
 ---
 
-This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes, clustering samples using PC1 and PC2, and test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study).
-
+This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes, clustering samples using PC1 and PC2, and test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study) using anova F test.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
@@ -68,13 +67,11 @@ table(colnames(NormBMlist$NormMAll) %in% GEO_phenotypes$Sample_name)
 Matched_pd <- GEO_phenotypes[match(colnames(NormBMlist$NormMAll), GEO_phenotypes$Sample_name),]
 Matched_pd$Outlier <- ifelse(Matched_pd$Additional_Info%in%"Outlier"|Matched_pd$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"), "Outlier", "Standard")
 
-
 # PMDs
 PMDs_hg19 <- readRDS(file = "/home/qianhui/DNAme/data/Placenta9-PMDpublished_hg19GR.unlisted.rds")
 
 # ICRs
 ICRsGR <- readRDS(file ="/home/qianhui/DNAme/Process_decidual/ICRs/ICRsGR.rds")
-
 ```
 
 
@@ -94,7 +91,6 @@ ProbeCorAndPval_PC1 <- DimPval$Dim.1$quanti %>%
 
 ### plot eigen values for each PCA
 barplot(PCA_Placenta_M$eig[,1],main="Eigenvalues",names.arg=1:nrow(PCA_Placenta_M$eig))
-
 
 # scree plot for PCAs
 eigenvalues <- PCA_Placenta_M$eig[1:10, ]
@@ -130,7 +126,7 @@ ProbeContrib.df.orderedTop2perc$p.valuePC1 %>% quantile()
 ```
 
 
-Calculate beta difference between placenta and mixed placenta sampels:
+### Calculate beta difference between placenta and mixed placenta sampels:
 
 ```{r}
 
@@ -177,9 +173,9 @@ table(Outlier_MeanB-Placenta_MeanB >= 0.2)
 
 ```
 
-Are these top 2% probes from PC1 located in PMDs?
+### Are these top 2% probes from PC1 located in PMDs?
 
-How many probes in PMDs and ICRs:
+#### How many probes in PMDs and ICRs:
 ```{r}
 ## Get probe ranges and select probe not related with islands
 Gset_placenta <- makeGenomicRatioSetFromMatrix(NormBMlist$NormBAll, array = "IlluminaHumanMethylation450k",
@@ -211,7 +207,7 @@ plyranges::find_overlaps(ICRsGR, GRangeProbe[,1:3])$Name %>% length()
 ```
 * In total, there were 44353 probes from 300k common probes (408 samples)
 
-How many top 2% probes in PMDs and ICRs:
+#### How many top 2% probes in PMDs and ICRs:
 ```{r}
 Top2GRangeProbe <- GRangeProbe[,1:3] %>% plyranges::filter(Name%in%ProbeContrib.df.orderedTop2perc$Name)
 
@@ -231,7 +227,6 @@ plyranges::find_overlaps(ICRsGR_placentaSpe, Top2GRangeProbe)$Name %>% length()
 
 # T1 placenta 
 ```{r T1}
-
 PhenodataPlacenta_T1 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
 
 Placenta_Mnorm_v1_T1 <-  NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_T1$Sample_name]
@@ -257,6 +252,7 @@ phenoDataPlacenta.df_T1 <- PhenodataPlacenta_T1_addOutlier %>% as.data.frame(str
   dplyr::select(c("Sample_name", "Outlier_T1"))
 
 ```
+
 
 # plot box plot for mixed and pure placenta samples:
 ```{r}
@@ -315,7 +311,6 @@ Placenta_betaNorm_T2 <- 2^Placenta_Mnorm_v1_T2 / (1+2^Placenta_Mnorm_v1_T2)
 PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffRightNames, 
                                               "Outlier_T2_1", "Pure"))
 
-
 phenoDataPlacenta.df_T2 <- PhenodataPlacenta_T2 %>% as.data.frame(stringsAsFactors=FALSE) %>%
   dplyr::select(c("Sample_name", "Outlier"))
 
@@ -330,8 +325,6 @@ outlierDim1Plot_T2 <- placenta_beta_dim1Top2perc.df_T2 %>%
   geom_boxplot()+
   # scale_x_discrete(labels=c("Outlier"="Outliers", "Standard"="Other Samples"))+
   labs(x="", y="Beta values")+
-  # stat_compare_means(label = "p.signif", method = "t.test",
-  #                    ref.group = ".all.") +
   theme(axis.text.y = element_text(size=12, colour ="black"),
         axis.text.x = element_text(size=12, colour ="black"),
         axis.title=element_text(size=12, colour ="black"),#,face="bold"
@@ -536,6 +529,7 @@ dev.off()
 ```
 
 
+
 # check whether PC1 and PC2 correlated with Tissue types, trimester, sex and study groups, suplimentary file
 
 Function for anova F test:
@@ -596,7 +590,7 @@ PC2_tissue <- TestPCFUN(PC = PCA_Placenta_M$ind$coord[,2], pd = Matched_pd$Sampl
 ```
 
 
-bind all df and write csv:
+Bind all df and write csv:
 ```{r}
 
 rbind(PC1_trimester, PC2_trimester,
