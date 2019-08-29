@@ -7,7 +7,6 @@ output: html_document
 
 This document is mainly for part2 of the GEO data set analysis, that is the quality control and visulisation of QC results from different tissue types.
 
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(fig.align = "center", error = TRUE, echo = TRUE) # fig.width = 7, 
 ```
@@ -59,6 +58,7 @@ When doing this step, we want to know the general quality of the array data sets
 ```{r QCfunction}
 # let argument RGset to be a charactor
 DetectionP_QC <- function(RGsetChara){
+  
   registerDoParallel(cores = 10)
   # get phenodata
   RGset <- get(RGsetChara)
@@ -98,7 +98,6 @@ DetectionP_QC <- function(RGsetChara){
 
 }
 
-
 ```
 
 
@@ -123,5 +122,4 @@ DetectionP_QC(RGsetChara = i)
 ```
 
 * QC result showed that these 2 samples ("GSM1617002_7668610068_R01C01" and "GSM1616993_7668610068_R06C02") have intensities less than 10.5 for methylation or unmethylation, they need to be removed for futher analyses.
-
 
