@@ -116,4 +116,4 @@ Additional quality control (including the check of fetal sex & genotypes) for 40
 
 * We probably need to run this part before part5, because the `GEO_phenotypes_ewastoolPurityCheck_output.csv` file generated from part9 were used in part5.
 
-# If you require any further information, feel free to contact Qianhui (Email: qianhui.wan@adelaide.edu.au or wanqianhui@outlook.com).
+** If you require any further information, feel free to contact Qianhui (Email: qianhui.wan@adelaide.edu.au or wanqianhui@outlook.com). **
