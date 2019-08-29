@@ -1,11 +1,11 @@
 ---
-title: "PC1Analysis_sub"
+title: "PC1Analysis_use the subset of data"
 author: "Qianhui"
 date: "12/17/2018"
 output: html_document
 ---
 
-This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes, clustering samples using PC1 and PC2, and test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study).
+This document is mainly for part6 of the GEO data set analysis, that is pull out PC1 probes, clustering samples using PC1 and PC2, and test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study) using anova F test.
 
 
 ```{r setup, include=FALSE}
@@ -39,10 +39,6 @@ pal <- brewer.pal(8, "Dark2")
 
 # GEOmeta, GEO_phenotypes
 load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_phenotypes_add10.RData")
-
-# Join.df_v2, GEO_phenotypes_joinedSamples, MDS_joinedSamples
-# load(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/GEO_joinedSamples551_Beta_MDS.RData")
-
 
 PCA_Placenta_M <- readRDS(file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all_sub.Rds")
 
@@ -130,7 +126,7 @@ ProbeContrib.df.orderedTop2perc$p.valuePC1 %>% quantile()
 ```
 
 
-Calculate beta difference between placenta and mixed placenta sampels:
+### Calculate beta difference between placenta and mixed placenta sampels:
 
 ```{r}
 
@@ -177,9 +173,9 @@ table(Outlier_MeanB-Placenta_MeanB >= 0.2)
 
 ```
 
-Are these top 2% probes from PC1 located in PMDs?
+### Are these top 2% probes from PC1 located in PMDs?
 
-How many probes in PMDs and ICRs:
+#### How many probes in PMDs and ICRs:
 ```{r}
 ## Get probe ranges and select probe not related with islands
 Gset_placenta <- makeGenomicRatioSetFromMatrix(NormBMlist$NormBAll, array = "IlluminaHumanMethylation450k",
@@ -211,7 +207,7 @@ plyranges::find_overlaps(ICRsGR, GRangeProbe[,1:3])$Name %>% length()
 ```
 * In total, there were 44353 probes from 300k common probes (408 samples)
 
-How many top 2% probes in PMDs and ICRs:
+#### How many top 2% probes in PMDs and ICRs:
 ```{r}
 Top2GRangeProbe <- GRangeProbe[,1:3] %>% plyranges::filter(Name%in%ProbeContrib.df.orderedTop2perc$Name)
 
@@ -229,7 +225,7 @@ plyranges::find_overlaps(ICRsGR_placentaSpe, Top2GRangeProbe)$Name %>% length()
 * There are 2018 probes from top 2 percent probes (6016) from PC1 that located in PMDs.
 
 
-# T1 placenta 
+# T1 placenta (i.e. samples from first trimester)
 ```{r T1}
 
 PhenodataPlacenta_T1 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"First",]
@@ -258,6 +254,7 @@ phenoDataPlacenta.df_T1 <- PhenodataPlacenta_T1_addOutlier %>% as.data.frame(str
 
 ```
 
+
 # plot box plot for mixed and pure placenta samples:
 ```{r}
 
@@ -282,22 +279,10 @@ outlierDim1Plot_T1 <- placenta_beta_dim1Top2perc.df_T1 %>%
 
 outlierDim1Plot_T1
 
-# tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top2percProbePlot_ForOutlier_T1_sub.tiff",
-#      width = 20, height = 9, units = "cm", res = 300)
-# theme_set(theme_bw())
-# outlierDim1Plot_T1
-# dev.off()
-
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.25)- 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-
-# saveRDS(placenta_beta_dim1Top2perc.df_T1, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T1_sub.rds")
-
 ```
 
 
-
-# T2 placenta, and pot beta values for outliers and pure samples
+# T2 placenta (i.e. samples from second trimester)
 ```{r T2}
 
 PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
@@ -310,6 +295,7 @@ Placenta_betaNorm_T2 <- 2^Placenta_Mnorm_v1_T2 / (1+2^Placenta_Mnorm_v1_T2)
 
 # T2 outlier and pure samples 
 ```{r}
+
 ## plot box plot for beta values of Dim1_top2perc porbes
 ## manipulate data frames #"GSM1702177_7970368142_R05C02"
 PhenodataPlacenta_T2$Outlier <- factor(ifelse(PhenodataPlacenta_T2$Sample_name%in%CutOffRightNames, 
@@ -339,24 +325,13 @@ outlierDim1Plot_T2 <- placenta_beta_dim1Top2perc.df_T2 %>%
 
 outlierDim1Plot_T2
 
-# tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top2percProbePlot_ForOutlier_T2_residual_sub.tiff",
-#      width = 20, height = 12, units = "cm", res = 300)
-# theme_set(theme_bw())
-# outlierDim1Plot_T2
-# dev.off()
-
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.25)- 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-
-# saveRDS(placenta_beta_dim1Top2perc.df_T2, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_T2_sub.rds")
-
 ```
 
 * The results showed that this one outlier from second trimester could be an impure placenta sample.
 
-# Term placenta 
-```{r T1}
 
+# Term placenta (i.e. samples form term)
+```{r T1}
 PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
 
 Placenta_Mnorm_v1_Term <-  NormBMlist$NormMAll[,colnames(NormBMlist$NormMAll)%in%PhenodataPlacenta_Term$Sample_name]
@@ -403,17 +378,6 @@ outlierDim1Plot_Term <- placenta_beta_dim1Top2perc.df_Term %>%
         text = element_text(size=12, colour ="black"))
 
 outlierDim1Plot_Term
-
-# tiff(file = "/home/qianhui/DNAme/Process_decidual/figures/Placenta_Dim1top2percProbePlot_ForOutlierTerm_sub.tiff",
-#      width = 20, height = 12, units = "cm", res = 300)
-# theme_set(theme_bw())
-# outlierDim1Plot_Term
-# dev.off()
-
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.75)+ 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-# quantile(PCA_Placenta_M_T2$ind$coord[, 1], 0.25)- 1.5*IQR(PCA_Placenta_M_T2$ind$coord[, 1])
-
-# saveRDS(placenta_beta_dim1Top2perc.df_Term, file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/placenta_beta_dim1Top2perc.df_Term_sub.rds")
 
 ```
 
@@ -499,13 +463,13 @@ theme_set(theme_pubr())
 
 # PCAs
 
-PCA408plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples.rds")
+PCA408plot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/T1TermSamples_PCA408samples_sub.rds")
 
 # PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot_noSexLabel.rds")
 
-PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot.rds")
+PCAT1T2Termplot <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/figures/PCAallplot_sub.rds")
 
-outlierDim1Plot_all <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_all.rds")
+outlierDim1Plot_all <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/outlierDim1Plot_all_sub.rds")
 
 
 PCAs <- ggarrange(PCA408plot, 
@@ -605,7 +569,7 @@ rbind(PC1_trimester, PC2_trimester,
       PC1_tissue, PC2_tissue) %>% 
   rownames_to_column(var="compare") %>% 
   arrange(-Fvalue) %>% 
-  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PC1PC2_TrimesterSexBatch.csv")
+  write_csv(path = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PC1PC2_TrimesterSexBatch_sub.csv")
 
 ```
 
