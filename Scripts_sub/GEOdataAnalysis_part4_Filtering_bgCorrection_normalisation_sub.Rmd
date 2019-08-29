@@ -66,7 +66,7 @@ annEPIC <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles/annEPIC
 
 # 2. Sample and probe filtering & Background and dye bias correction & nomalisation
 
-There are 6 tissue types (we choose tissue types located near placenta) in total from GEO.
+There are 6 tissue types in total from GEO (we choose samples from normal tissue types located near placenta).
 
 ## A) Function for filtering
 
@@ -75,23 +75,17 @@ FilterFUN & use FilterFUN
 TissueType: Placenta, Amnion, Chorion, Decidua, Maternal whole blood, Umbilical cord blood.
 
 ### Function `FilterFUN`
-
-
 ```{r FilterFUN}
 
 source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_FilterFUN.R")
 
 ```
 
-** I will do nomalisation in next Rmd document, because there may be batch effects between GEO studies, I need to use BMIQ and modified BMIQ to normalise all data sets.**
 
-
-
-## B) Use the function FilterFUN to get **filtered Methyl sets** for all the samples from 6 kinds of tissues located around placenta during early development.
+## B) Use the function FilterFUN to get **filtered Methyl sets** for all the samples from 6 different kinds of tissues.
 
 
 ### read in EPIC and 450k seperately
-
 ```{r}
 
 GEO_baseDir <- file.path("/home/qianhui/DNAme/Process_decidual/GEO_dataSets/IDAT_all")
@@ -237,7 +231,6 @@ with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
 
 
 ## D) Normalisation:
-
 ```{r}
 
 library(ChAMP)
@@ -272,7 +265,7 @@ saveRDS(PCA_all, file  = "/home/qianhui/DNAme/Process_decidual/RDSfiles/PCA_all_
 ```
 
 
-clustering
+Clustering
 ```{r}
 
 source(file = "~/DNAme/Process_decidual/GEO_TechPaper/Functions/GEOdataAnalysis_ggplotPCAFUN.R")
@@ -321,8 +314,3 @@ PCAclassPlot <- df %>%
         legend.position="top")
 
 ```
-
-
-
-
-
