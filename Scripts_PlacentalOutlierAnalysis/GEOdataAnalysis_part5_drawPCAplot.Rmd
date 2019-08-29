@@ -74,8 +74,7 @@ dev.off()
 
 table(colnames(NormBMlist$NormBAll) %in% NormBMlist$phenoDataAll$Sample_name)
 Matched_pd <- NormBMlist$phenoDataAll
-Matched_pd$Outlier <- ifelse(Matched_pd$Additional_Info%in%"Outlier"|Matched_pd$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"),
-                             "Outlier", "Standard")
+Matched_pd$Outlier <- ifelse(Matched_pd$Additional_Info%in%"Outlier"|Matched_pd$Sample_name%in%c("GSM1702177_7970368142_R05C02", "GSM1947213_6008581028_R01C01"),"Outlier", "Standard")
 
 NormMAll <- NormBMlist$NormMAll
 
@@ -437,8 +436,7 @@ set.seed(2022)
 
 res2022 <- MclustTrainTestFUN(datMeth_placenta = datMeth_placenta)
 
-# plot mclust result:
-
+# plot mclust result for traning and test data:
 ggarrange(
 PlotClassFUN(df = res2022$df_training, PCA_traning = res2022$PCA_traning),
 PlotClassFUN(df = res2022$df_test, PCA_traning = NULL), common.legend = TRUE)
