@@ -14,8 +14,8 @@ Fetal sex is estimated based on intensities from X/Y chromosomes.
 The theory of genotype checking is one sample (or one person/individual) could only have 3 status of DNA methylation (MM or MU or UU ^*^) for a perticular SNP. So the density plot of SNP methylation should be a plot with 3 peaks. If there are many SNP probes with methylation between 0%-50% or 50%-100% for one sample, this sample is likely to have more technical variance (or potential contamination from other individual or othe tissue types) than other samples that have 3 peaks as expected.
 
  ^*^ MM: both allels were methylated (~100% methylation), often refer to AA or BB;   
-    MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
-    UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
+     MU: one allel methylated, one allel unmethylated (~50% methylation), often refer to A/B genotype;   
+     UU: both allels were unmethylated (~0% methylation), often refer to AA or BB.
 
 
 ```{r setup, include=FALSE}
@@ -48,6 +48,7 @@ GEO_phenotypes_Filtered <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/
 GEO_phenotypes_Filtered <- GEO_phenotypes_Filtered[!(GEO_phenotypes_Filtered$Sample_name%in%c("GSM1617002_7668610068_R01C01","GSM1616993_7668610068_R06C02")),]
 
 ```
+
 
 # 2. Get RG channel sets:
 ```{r}
@@ -125,7 +126,7 @@ GEO_phenotypes_addPredictedSex %>%
 ```
 
 
-### output: predicted sex in csv file
+### output: write predicted sex to a csv file
 
 ```{r}
 GEO_phenotypes_addPredictedSex %>% 
@@ -181,7 +182,6 @@ GEO_phenotypes_detP <- left_join(detP450k, detEPIC, by="Probe") %>%
   `colnames<-`(c("Sample_name","detP"))
 
 
-
 GEO_phenotypes_ewastoolPurityCheck[GEO_phenotypes_ewastoolPurityCheck$log_odds> -4, ]
 ```
 
@@ -198,7 +198,6 @@ GEO_phenotypes_ewastoolPurityCheck_output <- GEO_phenotypes_ewastoolPurityCheck 
   dplyr::select(Sample, Sample_name, Trimester, Sex=Fetal_Sex, Study, ArrayType, Outlier, log_odds) %>% 
   dplyr::left_join(GEO_phenotypes_detP, by="Sample_name") %>% 
   arrange(desc(log_odds))
-
 
 
 GEO_phenotypes_ewastoolPurityCheck_output %>% 
@@ -235,7 +234,6 @@ detP_plot <- GEO_phenotypes_ewastoolPurityCheck_output %>%
         text = element_text(size=9, colour ="black"))
 
 ggpubr::ggarrange(detP_plot, log_odd_plot, ncol = 1, nrow = 2, common.legend = TRUE)
-
 
 
 log_odd_placenta_plot <- GEO_phenotypes_ewastoolPurityCheck_output[GEO_phenotypes_ewastoolPurityCheck_output$Sample%in%"Placenta",] %>% 
