@@ -56,7 +56,7 @@ placentaOutlier <- readRDS(file = "/home/qianhui/DNAme/Process_decidual/RDSfiles
 
 # 2. Plot PMDs
 
-## 2.1 Select probes for PMDs (T1 amd Term samples)
+## 2.1 Select probes for PMDs (samples from first trimester)
 ```{r}
 colorFun <- colorRampPalette(brewer.pal(8,"Dark2"))
 registerDoParallel(cores = 5)
@@ -113,6 +113,8 @@ ProbesForPMDanalysis <- ann450ksub[ann450ksub$Name %in%
 GRangeProbesForPMDanalysis <- GRangeProbe[GRangeProbe$Name %in% ProbesForPMDanalysis$Name, ] #128459
 ```
 
+
+## 2.2 Select probes for PMDs (samples from second trimester)
 ```{r}
 # T2 samples===========================
 PhenodataPlacenta_T2 <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Second",]
@@ -161,6 +163,8 @@ GRangeProbesForPMDanalysis_T2 <- GRangeProbe_T2[GRangeProbe_T2$Name %in% ProbesF
 
 ```
 
+
+## 2.3 Select probes for PMDs (samples from term)
 ```{r}
 # Term samples==============================
 PhenodataPlacenta_Term <- Matched_pd[Matched_pd$Sample%in%"Placenta" & Matched_pd$Trimester%in%"Term",]
@@ -280,7 +284,6 @@ mcols(PMD_BetaMeansIn10kbTiles_Term_v1GR) <- DataFrame(PMD_BetaMeansIn10kbTiles_
 PhenodataPlacenta <- left_join(PhenodataPlacenta, placentaOutlier, by="Sample_name")
 PhenodataPlacenta_T2 <- left_join(PhenodataPlacenta_T2, placentaOutlier, by="Sample_name")
 PhenodataPlacenta_Term <- left_join(PhenodataPlacenta_Term, placentaOutlier, by="Sample_name")
-
 
 ```
 
@@ -489,7 +492,6 @@ library(plyranges)
 library(rlang)
 ### your column names for your 96 ids, replace as necessary
 # nms <- colnames(values(GRangeProbesForPMDanalysis))[4:35]
-
 nms <- colnames(values(PMD_BetaMeansIn10kbTiles_T2_v1GR))
 
 # this will generate the mean calls
@@ -508,7 +510,6 @@ ProbesBetaMeansInPMD_T2 <- group_by_overlaps(PMDs_hg19, PMD_BetaMeansIn10kbTiles
 
 ### your column names for your 96 ids, replace as necessary
 # nms <- colnames(values(GRangeProbesForPMDanalysis_Term))[4:345]
-
 nms <- colnames(values(PMD_BetaMeansIn10kbTiles_Term_v1GR))
 # this will generate the mean calls
 cols <- lapply(nms, function(.) { col <- ensym(.); quo(mean(!!col)) })
@@ -587,5 +588,4 @@ wilcox.test(ProbesBetaMeansInPMD_long_v2[ProbesBetaMeansInPMD_long_v2$Trimester%
 }
 
 ```
-
 
