@@ -108,11 +108,11 @@ Show DNA methylation of mixed and pure placenta samples in placenta specific ICR
 
 Additional quality control (including the check of fetal sex & genotypes) for 408 samples using `ewastools` R package.
 
-* Identify miss labelled fetal sex for all 408 samples. Fetal sex predicated based on intensities form X/Y chromosomes.
+* Identify miss labelled fetal sex for all 408 samples. Fetal sex predicated based on intensities from X/Y chromosomes.
 
 * Check the homogeneity of genotypes (using 65 SNP probes to check genotype) for each sample. The suggested cutoff (log odds < -4) for samples contaminated with foreign DNA was used (Heiss JA & Just AC. 2018). 
 
-* The result from `ewastools` were used to compare with the result form our method to see whether mixed placenta samples were identified.
+* The result from `ewastools` were used to compare with the result from our method to see whether mixed placenta samples were identified.
 
 * We probably need to run this part before part5, because the `GEO_phenotypes_ewastoolPurityCheck_output.csv` file generated from part9 were used in part5.
 
