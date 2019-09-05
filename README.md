@@ -68,7 +68,7 @@ Filtration of unwanted probes followed with background and dye bias correction a
     
     * PC1 and PC2 from control probes (not pre-processed) could represent unwanted variables, but we can't adjust unwanted variables in processed data using unprocessed control probes. This method could also over process the data (see Vegard Nygaard's paper, Biostatistics. 2016).
   
-    In summary, we used the normalised data (without adding extra step for batch correction) for the following analyses.
+    In summary, we used the normalised data (without adding extra step for batch correction) for the following analyses, since the statistical results (ANOVA-F test) showed that the different clusters in PCA are more likely to reflect tissue types rather than study batches.
 
 ## Part 5
 
