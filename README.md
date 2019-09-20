@@ -3,7 +3,7 @@
 
 The scripts in this repository were used to identify potential mixed placenta samples (placenta samples mixed with other tissue types) by processing placental DNA methylation data from Infinium Human Methylation 450K/EPIC BeadChip.
 
-# For analysing placental outliers (potential mixed placenta samples), GEO data were used.
+# For analysing placental outliers (potential mixed placenta samples) using data from NCBI GEO data base.
 
 I use the publicly available data and 10 samples from our own study to find placental outliers (mixed placenta tissue samples) based on DNA methylation data.
 
