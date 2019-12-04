@@ -255,5 +255,15 @@ write.table(rownames(df), file = here("BashScript/all408sampleNames.txt"),
             quote = FALSE,
             col.names = FALSE)
 ############################################
+
+# After runing the bash script `get408SamplesData_IDATusedInThisPaper.sh`
+# we want to subset `GEOmeta.csv` and replace it with metaData of 408 samples
+
+GEOmeta <- read_csv(file =  here("RawDataFromGEO_408/GEOmeta.csv"))
+
+GEOmeta <- GEOmeta[GEOmeta$Sample_name%in%rownames(df),]
+
+write_csv(GEOmeta, path = here("RawDataFromGEO_408/GEOmeta.csv"))
+
 ```
 
