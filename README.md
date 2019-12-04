@@ -4,7 +4,7 @@
 ## Intoduction of each folder in this Repository
 
 ### BashScript
-* Bash scripts for copying unziping data from GEO database.
+* Bash scripts for copying and unziping data from GEO database.
 
 ### Plots
 * R markdown file (and knited .html file) that contains codes for generating plots.
@@ -14,7 +14,7 @@
 * R codes (in Rmarkdown files) for 9 steps of quality control process.
 
 ### RScript_sub
-* Quality control process using a subset of data. Result showed that this QC mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
+* Quality control process using a subset of data. Results showed that this QC mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
 
 ### R_Functions
 * The functions that need to be called by files in `RScript_PlacentaOutlierAnalyses`.
