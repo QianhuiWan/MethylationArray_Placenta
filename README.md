@@ -21,7 +21,7 @@
 
 ### RawDataFromGEO_408
 * Meta data (`GEOmeta.csv`) for all 408 GEO samples from 13 studies.
-* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor and the link is: https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
+* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from `cloudstor` and the link is: https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
 
 ## Details of the quality control methods (Steps of processing)
 R codes for this method are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`.
