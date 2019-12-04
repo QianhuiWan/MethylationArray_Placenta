@@ -21,7 +21,7 @@
 
 ### RawDataFromGEO_408
 * Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies
-* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor link:https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
+* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor link: https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
 
 ## Details of the quality control methods 
 R codes for this method are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`.
@@ -70,7 +70,7 @@ Filtration of unwanted probes followed with background and dye bias correction a
 
 * Different types of unwanted probes (including detection P>0.01, BeadCount<3 in 95% samples, cross-reactive probes, probes related with SNPs, and probes on X, Y chromosomes) were filtered 
 
-* Background noise and dye bias were corrected using `preprocessENmix` package.
+* Background noise and dye bias were corrected using `preprocessENmix` function from `ENmix` package.
 
 * Normalisation and batch correction for data sets
 
