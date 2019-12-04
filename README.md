@@ -1,19 +1,42 @@
 
 # MethylationArray_Placenta
 
+## Intoduction of each folder in this Repository
+
+### BashScript
+* Bash scripts for copying unziping data from GEO database.
+
+### Plots
+* R markdown file (and knited .html file) that contains codes for generating plots.
+* Plots on .jpeg format.
+
+### RScript_PlacentaOutlierAnalyses
+* R codes (in Rmarkdown files) for 9 steps of quality control process.
+
+### RScript_sub
+* Quality control process using a subset of data. Result showed that this QC mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
+
+### R_Functions
+* The functions that need to be called by files in `RScript_PlacentaOutlierAnalyses`.
+
+### RawDataFromGEO_408
+* Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies.
+* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor link: https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
+
+## Details of the quality control methods 
+R codes for this method are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`.
+
 The scripts in this repository were used to identify potential mixed placenta samples (placenta samples mixed with other tissue types) by processing placental DNA methylation data from Infinium Human Methylation 450K/EPIC BeadChip.
 
-# For analysing placental outliers (potential mixed placenta samples) using data from NCBI GEO data base.
+For analysing placental outliers (potential mixed placenta samples) using data from NCBI GEO data base, I use the publicly available data and 10 samples from our own study to find placental outliers (mixed placenta tissue samples) based on DNA methylation data.
 
-I use the publicly available data and 10 samples from our own study to find placental outliers (mixed placenta tissue samples) based on DNA methylation data.
+### Steps of processing
 
-# Steps of processing
-
-## Part 1
+#### Part 1
 
 Download the data sets from GEO and read raw IDAT files to RGchannel sets.
 
-* Get raw IDAT files and meta data files for 13 GEO data sets (GSE66210, GSE74738, GSE69502, GSE75196, GSE75248, GSE120250, GSE100197, GSE98224, GSE71678, GSE66459, GSE115508, GSE113600 and GSE131945). There are 408 samples in total, including 379 placenta, 11 maternal whole blood, 11 umbilical cord blood, 3 decidua, 2 amnion and 2 chorion. Details of these samples was listed in meta data files (GEOmeta/GEO_phenotypes or NormBMlist$phenoDataAll).
+* Get raw IDAT files and meta data files for 13 GEO data sets (GSE66210, GSE74738, GSE69502, GSE75196, GSE75248, GSE120250, GSE100197, GSE98224, GSE71678, GSE66459, GSE115508, GSE113600 and GSE131945). There are 408 samples in total, including 379 placenta, 11 maternal whole blood, 11 umbilical cord blood, 3 decidua, 2 amnion and 2 chorion. Details of these samples was listed in meta data files (`GEOmeta.csv` or `NormBMlist$phenoDataAll`).
 
 * Modified all the meta data files, so they all have same column names (GEO_accession:Slide). I used `rbind` to join all the meta data files into one file.
 
@@ -21,7 +44,7 @@ Download the data sets from GEO and read raw IDAT files to RGchannel sets.
 
 * Saved RGchannel sets
 
-## Part 2
+#### Part 2
 
 I did quality control for all 408 samples to look at whether there are any failed samples, so they can be removed.
 
@@ -33,7 +56,7 @@ I did quality control for all 408 samples to look at whether there are any faile
   
 * Then plot QC plots for all 408 samples, all samples of first and second trimester are from terminated pregnancies and all term samples are from uncomplicated pregnancies.
 
-## Part 3
+#### Part 3
 
 To have an overview of batch effects using those control probes on 450K and EPIC arrays, PCA were applied to control probes from RGchannel sets.
 
@@ -41,13 +64,13 @@ To have an overview of batch effects using those control probes on 450K and EPIC
 
 * Saved PCA results for 408 samples.
 
-## Part 4
+#### Part 4
 
 Filtration of unwanted probes followed with background and dye bias correction and normalisation.
 
 * Different types of unwanted probes (including detection P>0.01, BeadCount<3 in 95% samples, cross-reactive probes, probes related with SNPs, and probes on X, Y chromosomes) were filtered 
 
-* Background noise and dye bias were corrected using `preprocessENmix` package.
+* Background noise and dye bias were corrected using `preprocessENmix` function from `ENmix` package.
 
 * Normalisation and batch correction for data sets
 
@@ -70,7 +93,7 @@ Filtration of unwanted probes followed with background and dye bias correction a
   
     In summary, we used the normalised data (without adding extra step for batch correction) for the following analyses, since the statistical results (ANOVA-F test) showed that the different clusters in PCA were more likely to reflect tissue types rather than study batches.
 
-## Part 5
+#### Part 5
 
   * Plotted PCA plot for normalised data
   
@@ -80,7 +103,7 @@ Filtration of unwanted probes followed with background and dye bias correction a
   
   * All data (408 samples) were separated into training data (n=285) and test data (n=123) to test the clustering methods used for identifying outliers/potential mixed placenta samples.
 
-## Part 6
+#### Part 6
 
 * boxplot (mixed and pure placenta samples) for top 2% probes that significantly contributed to PC1 (delta beta > 0.2)
 
@@ -88,7 +111,7 @@ Filtration of unwanted probes followed with background and dye bias correction a
 
 * test correlation between PC1/PC2 and factors (including Tissue types, Trimester, sex, study) using ANOVA F test.
 
-## Part 7
+#### Part 7
 
 Show DNA methylation of mixed and pure placenta samples in PMDs (Partially methylated domain).
 
@@ -96,7 +119,7 @@ Show DNA methylation of mixed and pure placenta samples in PMDs (Partially methy
 
 * Gviz plot to show DNA methylation of outliers (first, second trimester and term) in PMDs (Chr21)
 
-## Part 8
+#### Part 8
 
 Show DNA methylation of mixed and pure placenta samples in placenta specific ICRs (imprinting control regions)
 
@@ -104,7 +127,7 @@ Show DNA methylation of mixed and pure placenta samples in placenta specific ICR
 
 * Plot supplementary figure (difference of DNA methylation between mixed and pure placenta samples at all placenta-specific ICRs)
 
-## Part 9
+#### Part 9
 
 Additional quality control (including the check of fetal sex & genotypes) for 408 samples using `ewastools` R package.
 
