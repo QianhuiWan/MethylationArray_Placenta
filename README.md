@@ -21,9 +21,10 @@
 
 ### RawDataFromGEO_408
 * Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies
-* Raw IDAT files for all 408 samples (~3GB, put on cloud).
+* Raw IDAT files for all 408 samples (~3GB). These data were in GitHub, they can be downloaded from cloudstor (link:).
 
-## Details of the quality control methods (R codes are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`)
+## Details of the quality control methods 
+R codes for this method are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`.
 
 The scripts in this repository were used to identify potential mixed placenta samples (placenta samples mixed with other tissue types) by processing placental DNA methylation data from Infinium Human Methylation 450K/EPIC BeadChip.
 
