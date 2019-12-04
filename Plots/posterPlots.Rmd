@@ -1,0 +1,259 @@
+---
+title: "Poster plots"
+author: "Qianhui"
+date: "03/12/2019"
+output: html_document
+---
+
+# load packages needed
+```{r pkgs, message=FALSE, warning=FALSE, results="hide"}
+pkgs <- c("tidyverse", "plyranges", "magrittr", "doParallel", "ggplot2", "ggpubr", "RColorBrewer", 
+          "gridExtra", "here", "mclust")
+
+# require(x) #library function is better for loding packages than require function
+lapply(pkgs, library, character.only = TRUE)
+
+```
+
+
+# load clean data needed
+## Data for oster plot 1
+```{r}
+# PCAs
+PCA_Placenta_M <- readRDS(file  = here("cleanData/PCA_all.Rds"))
+
+PCA408plot <- readRDS(file = here("cleanData/T1TermSamples_PCA408samples.rds"))
+
+PCAT1T2Termplot <- readRDS(file = here("cleanData/PCAallplot.rds"))
+
+# outlierDim1Plot_all <- readRDS(file = here("cleanData/outlierDim1Plot_all.rds"))
+
+```
+
+## Data for poster plot 2
+```{r}
+
+placenta_beta_dim1Top2perc.df_all <- readRDS(file = here("cleanData/placenta_beta_dim1Top2perc.df_all.rds"))
+
+# Data for Gviz plot
+PMDs_hg19 <- readRDS(file = here("cleanData/Placenta9-PMDpublished_hg19GR.unlisted.rds"))
+ICRsGR <- readRDS(file =here("cleanData/ICRsGR.rds"))
+
+# for ICR/PMD violin plot
+AllPMDsMeanViolinPlot <- readRDS(file = here("cleanData/AllPMDsMeanViolinPlot.rds"))
+allICRsViolinPlot <- readRDS(file = here("cleanData/allICRsViolinPlot.rds"))
+
+```
+
+## Data for poster plot 3
+```{r, message=FALSE, warning=FALSE}
+load(file = here("cleanData/GEO_phenotypes_add10.RData"))
+
+NormBMlist <- readRDS(file = here("cleanData/NormBMlist_300k.rds"))
+NormMAll <- NormBMlist$NormMAll
+table(colnames(NormMAll) %in% GEO_phenotypes$Sample_name)
+rm(NormBMlist, GEOmeta)
+
+GEO_phenotypes_ewastoolPurityCheck_output <- read_csv(file =  here("cleanData/GEO_phenotypes_ewastoolPurityCheck_output.csv"))
+
+EwastoolOutlierName <- GEO_phenotypes_ewastoolPurityCheck_output[GEO_phenotypes_ewastoolPurityCheck_output$log_odds> -4,]$Sample_name
+
+```
+
+# poster plot 1
+
+```{r}
+theme_set(theme_pubr())
+
+PCA408plot_label <- PCA408plot+
+  geom_text(aes(x=155 , y=-600, label="Q3+1.5*IQR"), vjust=-0.4, hjust=0, size=4) +
+  geom_text(aes(x=320 , y=-600, label="Q3+3*IQR"), vjust=-0.4, hjust=0, size=4) +
+  # geom_point(stroke =2)+
+  theme(text = element_text(size=24),
+        legend.title=element_text(size=22),
+        legend.text=element_text(size=20),
+        axis.text.x =element_text(size=24, colour = "black"),
+        axis.text.y =element_text(size=24, colour = "black"),
+        legend.position="top")+
+  guides(colour = guide_legend(override.aes = list(size=4)),
+         shape = guide_legend(override.aes = list(size=4)))
+PCA408plot_label$layers[[1]]$aes_params$size <- 4
+
+
+PCAT1T2Termplot_addSize <- PCAT1T2Termplot+
+  theme(text = element_text(size=24),
+        legend.title=element_text(size=22),
+        legend.text=element_text(size=20),
+        axis.text.x =element_text(size=24, colour = "black"),
+        axis.text.y =element_text(size=24, colour = "black"),
+        strip.text.x = element_text(size = 24, colour = "black"),
+        legend.position="top")
+PCAT1T2Termplot_addSize$layers[[1]]$aes_params$size <- 4
+  
+PCAs <- ggarrange(PCA408plot_label, 
+                  PCAT1T2Termplot_addSize,
+                  labels = c("A", "B"),
+                  ncol = 1, nrow = 2, 
+                  # heights = c(1.3,3),
+                  font.label=list(size = 36, color = "black", face = "bold", family = "Arial"),
+                  common.legend = TRUE)
+
+
+# tiff(file = here("posterPlot/poster_F1.tiff"),
+#      width = 37, height = 32, units = "cm", res = 300)
+# jpeg(file = here("posterPlot/poster_F1.jpeg"),
+#      width = 37, height = 32, units = "cm", res = 300)
+# theme_set(theme_pubr())
+# PCAs
+# dev.off()
+
+print(PCA408plot_label)
+print(PCAT1T2Termplot_addSize)
+
+```
+
+# Pster plot 2
+## violin plot
+```{r}
+theme_set(theme_pubr())
+
+outlierDim1Plot_all <- placenta_beta_dim1Top2perc.df_all %>% 
+  ggplot(aes(x=OutlierColor, y=value, fill=OutlierColor))+ 
+  geom_violin(trim = T)+
+  geom_boxplot(width=0.1, fill="white")+
+  scale_fill_manual(name="Placenta", 
+                    values = c("Outlier"="#1B9E77", "Pure"="#D95F02"),
+                    labels = c("Outlier"="Mixed", "Pure"="Pure"))+
+  # scale_x_discrete(labels="")+
+  labs(x="", y="Beta values")+ #, fill="Placenta"
+  facet_wrap(~Trimester, scale="free_x", nrow = 1)+
+  stat_compare_means(label = "p.signif", method = "wilcox.test", size = 10) +
+  # facet_grid(.~Trimester, scale="free_x")+
+  guides(fill=guide_legend(nrow = 1)) +
+  ggtitle("Overall DNA methylation difference")+
+  theme(axis.text.y = element_text(size=24, colour ="black"),
+        axis.ticks.x= element_blank(),
+        axis.text.x=element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        axis.title=element_text(size=24, colour ="black"),#,face="bold"
+        strip.text.x = element_text(size = 24, colour = "black"),
+        text = element_text(size=24, colour ="black"),
+        legend.position="top")
+
+
+
+# jpeg(file = here("posterPlot/poster_F2.jpeg"),
+#      width = 37, height = 15, units = "cm", res = 300)
+# theme_set(theme_pubr())
+# outlierDim1Plot_all
+# dev.off()
+
+```
+
+## Gviz plot or violin plot ICRs/PMDs
+
+```{r}
+AllPMDsMeanViolinPlot$layers[[3]]$aes_params <- outlierDim1Plot_all$layers[[3]]$aes_params
+AllPMDsMeanViolinPlot <- AllPMDsMeanViolinPlot+
+  ggtitle("DNA methylation in PMDs")+
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.ticks.x= element_blank(),
+        axis.text.y = element_text(size=24, colour ="black"),
+        axis.title=element_text(size=24, colour ="black"),#,face="bold"
+        strip.text.x = element_text(size = 24, colour = "black"),
+        text = element_text(size=24, colour ="black"))
+
+allICRsViolinPlot$layers[[3]]$aes_params <- outlierDim1Plot_all$layers[[3]]$aes_params
+allICRsViolinPlot <- allICRsViolinPlot+ggtitle("DNA methylation in ICRs")+
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.ticks.x= element_blank(),
+        axis.text.y = element_text(size=24, colour ="black"),
+        axis.title=element_text(size=24, colour ="black"),#,face="bold"
+        strip.text.x = element_text(size = 24, colour = "black"),
+        text = element_text(size=24, colour ="black"))
+
+plot2 <- ggarrange(outlierDim1Plot_all,
+          AllPMDsMeanViolinPlot, 
+          allICRsViolinPlot, 
+          labels = c("A", "B", "C"),
+          font.label = list(size = 36, face = "bold", color ="black"),
+          nrow = 3, ncol = 1, 
+          common.legend = TRUE)
+
+# jpeg(file =  here("posterPlot/poster_F2.jpeg"),
+#      width = 37, height = 35, units = "cm", res = 300)
+# theme_set(theme_pubr())
+# print(plot2)
+# dev.off()
+
+print(outlierDim1Plot_all)
+print(AllPMDsMeanViolinPlot)
+print(allICRsViolinPlot)
+
+```
+
+
+# Poster plot 3
+
+```{r}
+
+Matched_pd <- GEO_phenotypes[match(colnames(NormMAll), GEO_phenotypes$Sample_name),]
+
+df <- PCA_Placenta_M$ind$coord %>% as.data.frame() %>% rownames_to_column(var="Sample_name") %>% 
+  left_join(Matched_pd, by="Sample_name") %>% column_to_rownames(var="Sample_name")
+
+a1 <- mclust::Mclust(df[,c("Dim.1","Dim.2")],2) #for 2 groups
+table(a1$classification,df$Sample)
+with(df,plot(Dim.2 ~ Dim.1,pch=as.numeric(as.factor(Sample)),col=a1$classification))
+with(df,legend("topright",levels(as.factor(Sample)),pch=1:6))
+
+# plot mclust result supl
+df$class <- a1$classification
+df$percent <- a1$z[,2]
+
+df$Sample2 <- str_replace_all(df$Sample, "Umbilical cord blood", "Cord blood")
+df$ewastools <- ifelse(rownames(df)%in%EwastoolOutlierName, "Yes", "No") #Contaminated samples\n(ewastools)
+
+PCAclassPlot <- df %>%
+  ggplot(aes(Dim.1, Dim.2)) + 
+  geom_point(aes(shape = Sample2, col=as.factor(class)), size = 4)+ #, alpha = percent
+  scale_shape_manual(name="Samples", values=c(0, 1, 12, 2, 3, 5))+
+  scale_color_manual(name="Clusters", values = c("1"="#000000","2"="#D95F02"), 
+                     labels=c("1"="Cluster 1", "2"="Cluster 2"))+
+  labs(x="PC1 (25.91%)", y="PC2 (10.69%)")+
+  scale_y_continuous(breaks=c(-600,-300,0, 300, 600), limits = c(-600, 800))+
+  scale_x_continuous(breaks=c(-400,0, 400, 800), limits = c(-410, 1150))+
+  # scale_alpha_continuous(range = c(0.5,1), name="Percentage")+ #guide='none'
+  geom_point(data=df[df$ewastools == "Yes",],color="green", shape=1, size=6) +
+  guides(color=guide_legend(nrow = 2, order = 1), 
+         shape=guide_legend(nrow = 3, order = 2)) + #,alpha=guide_legend(nrow = 3, order = 1)
+  theme(text = element_text(size=24),
+        legend.title=element_text(size=22),
+        legend.text=element_text(size=20),
+        axis.text.x =element_text(size=24, colour = "black"),
+        axis.text.y =element_text(size=24, colour = "black"),
+        legend.position="top",
+        legend.direction = "horizontal",
+        legend.title.align = 0.5)
+
+# jpeg(file = here("posterPlot/poster_F3.jpeg"),
+#      width = 36, height = 14, units = "cm", res = 300)
+# theme_set(theme_pubr())
+# PCAclassPlot
+# dev.off()
+
+print(PCAclassPlot)
+```
+
+
+```{r, include=FALSE}
+#############################################
+# For get zip raw data for all 408 samples from GEO, we also need a txt file containng all the sample names of these 408 samples.
+
+write.table(rownames(df), file = here("BashScript/all408sampleNames.txt"),
+            row.names = FALSE,
+            quote = FALSE,
+            col.names = FALSE)
+############################################
+```
+
