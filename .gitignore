@@ -3,3 +3,4 @@
 .RData
 .Ruserdata
 cleanData/
+.DS_Store
