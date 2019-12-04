@@ -14,14 +14,14 @@
 * R codes (in Rmarkdown files) for 9 steps of quality control process
 
 ### RScript_sub
-* Quality control process using a subset of data. Result showed that this mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
+* Quality control process using a subset of data. Result showed that this QC mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
 
 ### R_Functions
 * The functions that need to be called by files in `RScript_PlacentaOutlierAnalyses`.
 
 ### RawDataFromGEO_408
 * Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies
-* Raw IDAT files for all 408 samples (~3GB). These data were in GitHub, they can be downloaded from cloudstor link:https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
+* Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor link:https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
 
 ## Details of the quality control methods 
 R codes for this method are in folder `RScript_PlacentaOutlierAnalyses` and `R_Functions`.
