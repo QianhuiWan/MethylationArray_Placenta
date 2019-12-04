@@ -4,3 +4,5 @@
 .Ruserdata
 cleanData/
 .DS_Store
+Plots/.DS_Store
+RawDataFromGEO_408/.DS_Store
