@@ -1,17 +1,17 @@
 
 # MethylationArray_Placenta
 
-## Files in each folder of this Repository
+## Intoduction of each folder in this Repository
 
 ### BashScript
 * Bash scripts for copying unziping data from GEO database.
 
 ### Plots
-* R markdown file (and knited .html file) that contains codes for generating plots
-* Plots on .jpeg format
+* R markdown file (and knited .html file) that contains codes for generating plots.
+* Plots on .jpeg format.
 
 ### RScript_PlacentaOutlierAnalyses
-* R codes (in Rmarkdown files) for 9 steps of quality control process
+* R codes (in Rmarkdown files) for 9 steps of quality control process.
 
 ### RScript_sub
 * Quality control process using a subset of data. Result showed that this QC mehod can deal with a subset of data, but we still recommend using method from `RScript_PlacentaOutlierAnalyses`.
@@ -20,7 +20,7 @@
 * The functions that need to be called by files in `RScript_PlacentaOutlierAnalyses`.
 
 ### RawDataFromGEO_408
-* Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies
+* Meta data (`GEOmeta.csv`) for all GEO samples from 13 studies.
 * Raw IDAT files for all 408 samples (~3GB). These data were not in GitHub, they can be downloaded from cloudstor link: https://cloudstor.aarnet.edu.au/plus/s/Rh1tOpGqDVaQBuN.
 
 ## Details of the quality control methods 
