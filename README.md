@@ -1,7 +1,7 @@
 
 # MethylationArray_Placenta
 
-## Intoduction of each folder in this Repository
+## This repository includes:
 
 ### BashScript
 * Bash scripts for copying and unziping data from GEO database.
